@@ -77,8 +77,28 @@ let out;if(straight&&flush)out=[8,straight];else if(counts[groups[0]]===4)out=[7
 }
 function handScore(cards){if(cards.length!==7)throw Error('홀 카드 2장과 보드 5장이 필요합니다');let best=null;for(let a=0;a<7;a++)for(let b=a+1;b<7;b++){let rank=score5(cards.filter((_,i)=>i!==a&&i!==b));if(!best||compare(rank,best)>0)best=rank}return best}
 function compare(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){let d=(a[i]||0)-(b[i]||0);if(d)return d}return 0}
-function inputBoard(){const raw=prompt('보드 카드 최대 5장 입력 (예: As Kd 7h 2c 3s)',(state.cards.board||[]).join(' '));if(raw===null)return;try{const a=parseCards(raw);if(a.length>5)throw Error('보드 카드는 최대 5장입니다');state.cards.board=a;render()}catch(e){alert(e.message)}}
-function inputHole(){const p=get(state.selected);if(!p)return;mark(p);const raw=prompt(p.seat+'번 홀 카드 2장 (예: As Kh)',p.cards.join(' '));if(raw===null)return;try{const a=parseCards(raw);if(a.length!==2)throw Error('홀 카드 2장을 입력하세요');p.cards=a;render()}catch(e){alert(e.message)}}
+let picker=null;
+const deckRanks='AKQJT98765432',deckSuits=['S','H','D','C'];
+const displayCard=c=>c?c[0]+({S:'♠',H:'♥',D:'♦',C:'♣'}[c[1]]||''):'';
+function openPicker(type){const p=get(state.selected);if(type==='hole'&&!p)return;picker={type,seat:state.selected,selected:[...(type==='board'?(state.cards.board||[]):(p.cards||[]))]};showPicker()}
+function showPicker(){
+ if(!picker)return;document.getElementById('plc-card-picker')?.remove();
+ const max=picker.type==='board'?5:2;
+ const used=new Set(picker.type==='board'?state.players.flatMap(p=>p.cards||[]):[...(state.cards.board||[]),...state.players.filter(p=>p.seat!==picker.seat).flatMap(p=>p.cards||[])]);
+ const d=document.createElement('div');d.id='plc-card-picker';d.style.cssText='position:fixed;inset:0;z-index:9999;background:#080d18ee;display:flex;align-items:center;justify-content:center;padding:12px';
+ const container=document.createElement('div');container.style.cssText='background:#152137;color:#fff;border:1px solid #3e5270;border-radius:18px;padding:14px;width:min(100%,560px);max-height:94dvh;overflow:auto';
+ const title=document.createElement('h3');title.textContent=(picker.type==='board'?'커뮤니티 카드':'좌석 '+picker.seat+' 홀 카드')+' · '+picker.selected.length+'/'+max;container.append(title);
+ const chosen=document.createElement('div');chosen.style.cssText='min-height:40px;margin-bottom:12px;color:#eaca81';chosen.textContent=picker.selected.map(displayCard).join('  ')||'아래에서 카드를 선택하세요';container.append(chosen);
+ for(const suit of deckSuits){const row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:3px;margin-bottom:9px';
+ for(const rank of deckRanks){const card=rank+suit;const b=document.createElement('button');b.textContent=rank+({S:'♠',H:'♥',D:'♦',C:'♣'}[suit]);b.style.cssText='padding:8px 0;border-radius:6px;font-size:12px;min-width:0;background:'+(['H','D'].includes(suit)?'#fff4f4':'#fff')+';color:'+(['H','D'].includes(suit)?'#b01835':'#1c2234');const selected=picker.selected.includes(card);if(selected)b.style.outline='3px solid #e1b965';b.disabled=used.has(card)||(!selected&&picker.selected.length>=max);b.onclick=()=>{picker.selected=selected?picker.selected.filter(c=>c!==card):[...picker.selected,card];showPicker()};row.append(b)}container.append(row)}
+ const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
+ const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
+ const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];picker=null;d.remove();render()};
+ actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
+}
+function inputBoard(){openPicker('board')}
+function inputHole(){openPicker('hole')}
 function showdown(){
 const players=eligible();if(players.length===1){finish(players[0].seat);return}
 if((state.cards.board||[]).length!==5||players.some(p=>(p.cards||[]).length!==2)){alert('쇼다운 참여자 카드 2장씩과 보드 5장을 모두 입력해야 자동 판정할 수 있습니다.');return}

@@ -34,6 +34,7 @@ const can=eligible().filter(p=>p.stack>0);
 return can.every(p=>p.acted&&p.roundPaid>=state.currentBet);
 }
 function streetNext(){
+if(state.paused==='showdown'){alert('이미 쇼다운 상태입니다. 카드를 입력하고 판정하거나 다음 핸드에서 승자를 지정하세요.');return}
 const streets=['PREFLOP','FLOP','TURN','RIVER'];
 if(state.street==='RIVER'||eligible().every(p=>p.stack<=0)){state.paused='showdown';state.history.unshift('쇼다운 · 카드 입력 또는 승자 확인 필요');return}
 state.street=streets[streets.indexOf(state.street)+1];

@@ -1,0 +1,110 @@
+/* Poker Live Coach — hand engine v1; local-only data */
+(function(){
+const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
+const live=()=>state.players.filter(p=>!p.folded&&p.stack+p.contributed>0);
+const eligible=()=>state.players.filter(p=>!p.folded&&(p.stack>0||p.contributed>0));
+const get=n=>state.players.find(p=>p.seat===n);
+const seatNext=(n,arr)=>{for(let i=1;i<=10;i++){let v=(n+i-1)%10+1;if(arr.some(p=>p.seat===v))return v}return n};
+const isAll=p=>p.stack<=0;
+function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
+function initHand(first=false){
+ const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
+ if(!first)state.button=seatNext(state.button,at);
+ state.players.forEach(p=>{p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
+ state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
+ const sb=at.length===2?state.button:seatNext(state.button,at);
+ const bb=seatNext(sb,at);
+ const post=(seat,amt)=>{const p=get(seat);const paid=Math.min(p.stack,amt);p.stack-=paid;p.roundPaid+=paid;p.contributed+=paid;state.pot+=paid};
+ post(sb,state.sb);post(bb,state.bb);
+ if(state.level>=3&&state.gameType==='새틀라이트'){const p=get(bb);const ante=Math.min(p.stack,state.bb);p.stack-=ante;p.contributed+=ante;state.pot+=ante}
+ state.currentBet=Math.max(get(bb).roundPaid,get(sb).roundPaid);
+ state.lastRaise=state.bb;state.actions=0;
+ state.selected=at.length===2?sb:seatNext(bb,at);
+ state.history.unshift('#'+state.hand+' 핸드 시작 '+fmt(state.sb)+'/'+fmt(state.bb));
+ render();
+}
+prepareHand=initHand;
+function nextActor(from){
+const act=eligible().filter(p=>p.stack>0);
+if(!act.length)return 0;
+let n=seatNext(from,act);return n
+}
+function streetDone(){
+const can=eligible().filter(p=>p.stack>0);
+return can.every(p=>p.acted&&p.roundPaid>=state.currentBet);
+}
+function streetNext(){
+const streets=['PREFLOP','FLOP','TURN','RIVER'];
+if(state.street==='RIVER'||eligible().every(p=>p.stack<=0)){state.paused='showdown';state.history.unshift('쇼다운 · 카드 입력 또는 승자 확인 필요');return}
+state.street=streets[streets.indexOf(state.street)+1];
+state.currentBet=0;state.lastRaise=state.bb;
+state.players.forEach(p=>{p.roundPaid=0;p.acted=false});
+const act=eligible().filter(p=>p.stack>0);
+state.selected=act.length?seatNext(state.button,act):state.button;
+state.history.unshift(state.street+' 시작');
+}
+function act(kind){
+if(state.paused)return;
+const p=get(state.selected);if(!p||p.folded||p.stack<=0)return;mark(p);
+const due=Math.max(0,state.currentBet-p.roundPaid);
+if(kind==='FOLD'){p.folded=true;p.folds++;p.acted=true;state.history.unshift(p.seat+'번 폴드')}
+else if(kind==='CHECK'){if(due){alert('콜 '+fmt(due)+'칩이 필요합니다. 체크할 수 없습니다.');return}p.acted=true;state.history.unshift(p.seat+'번 체크')}
+else{
+ let amount=kind==='CALL'?Math.min(due,p.stack):kind==='ALL-IN'?p.stack:Math.min(p.stack,Number(state.amount)||0);
+ if(kind==='RAISE'&&amount<=due){alert('베팅/레이즈 금액은 현재 콜 금액보다 커야 합니다.');return}
+ if(amount<=0){alert('입력할 칩이 없습니다.');return}
+ p.stack-=amount;p.contributed+=amount;p.roundPaid+=amount;state.pot+=amount;
+ if(p.roundPaid>state.currentBet){const jump=p.roundPaid-state.currentBet;state.currentBet=p.roundPaid;state.lastRaise=Math.max(state.lastRaise,jump);state.players.filter(q=>q.seat!==p.seat&&!q.folded&&q.stack>0).forEach(q=>q.acted=false);p.raises++}
+ else if(kind==='CALL')p.calls++;
+ p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(amount)+'칩');state.amount=0
+}
+const remaining=eligible();
+if(remaining.length===1){finish(remaining[0].seat);return}
+if(streetDone())streetNext();
+else {const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
+render()
+}
+betAction=act;fold=()=>act('FOLD');
+function parseCards(x){if(!x)return[];return x.trim().toUpperCase().replace(/10/g,'T').split(/[\s,;]+/).filter(Boolean).map(c=>{let m=c.match(/^([2-9TJQKA])([CDHS♣♦♥♠])$/);if(!m)throw Error('카드는 As Kh Qd 형식으로 입력해주세요');return m[1]+({'♣':'C','♦':'D','♥':'H','♠':'S'}[m[2]]||m[2])})}
+function score5(cs){
+const val='23456789TJQKA';const v=cs.map(c=>val.indexOf(c[0])+2).sort((a,b)=>b-a);
+const counts={};v.forEach(x=>counts[x]=(counts[x]||0)+1);
+const groups=Object.keys(counts).map(Number).sort((a,b)=>counts[b]-counts[a]||b-a);
+const flush=cs.every(c=>c[1]===cs[0][1]);
+const uniq=[...new Set(v)];if(uniq.includes(14))uniq.push(1);
+let straight=0;for(let i=0;i<=uniq.length-5;i++)if(uniq[i]-uniq[i+4]===4){straight=uniq[i];break}
+let out;if(straight&&flush)out=[8,straight];else if(counts[groups[0]]===4)out=[7,groups[0],...v.filter(x=>x!==groups[0])];else if(counts[groups[0]]===3&&counts[groups[1]]>=2)out=[6,groups[0],groups[1]];else if(flush)out=[5,...v];else if(straight)out=[4,straight];else if(counts[groups[0]]===3)out=[3,groups[0],...v.filter(x=>x!==groups[0])];else if(counts[groups[0]]===2&&counts[groups[1]]===2)out=[2,Math.max(groups[0],groups[1]),Math.min(groups[0],groups[1]),...v.filter(x=>x!==groups[0]&&x!==groups[1])];else if(counts[groups[0]]===2)out=[1,groups[0],...v.filter(x=>x!==groups[0])];else out=[0,...v];return out
+}
+function handScore(cards){if(cards.length!==7)throw Error('홀 카드 2장과 보드 5장이 필요합니다');let best=null;for(let a=0;a<7;a++)for(let b=a+1;b<7;b++){let rank=score5(cards.filter((_,i)=>i!==a&&i!==b));if(!best||compare(rank,best)>0)best=rank}return best}
+function compare(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){let d=(a[i]||0)-(b[i]||0);if(d)return d}return 0}
+function inputBoard(){const raw=prompt('보드 카드 최대 5장 입력 (예: As Kd 7h 2c 3s)',(state.cards.board||[]).join(' '));if(raw===null)return;try{const a=parseCards(raw);if(a.length>5)throw Error('보드 카드는 최대 5장입니다');state.cards.board=a;render()}catch(e){alert(e.message)}}
+function inputHole(){const p=get(state.selected);if(!p)return;mark(p);const raw=prompt(p.seat+'번 홀 카드 2장 (예: As Kh)',p.cards.join(' '));if(raw===null)return;try{const a=parseCards(raw);if(a.length!==2)throw Error('홀 카드 2장을 입력하세요');p.cards=a;render()}catch(e){alert(e.message)}}
+function showdown(){
+const players=eligible();if(players.length===1){finish(players[0].seat);return}
+if((state.cards.board||[]).length!==5||players.some(p=>(p.cards||[]).length!==2)){alert('쇼다운 참여자 카드 2장씩과 보드 5장을 모두 입력해야 자동 판정할 수 있습니다.');return}
+const all=[...state.cards.board,...players.flatMap(p=>p.cards)];if(new Set(all).size!==all.length){alert('중복된 카드가 있습니다. 다시 확인하세요.');return}
+const levels=[...new Set(state.players.map(p=>p.contributed||0).filter(x=>x>0))].sort((a,b)=>a-b);let prev=0;const award={};
+for(const limit of levels){const contributors=state.players.filter(p=>(p.contributed||0)>=limit),pool=(limit-prev)*contributors.length;prev=limit;
+const cand=contributors.filter(p=>!p.folded);if(!cand.length){alert('팟 정산 실패: 유효한 승자가 없습니다.');return}
+let best=null,winners=[];for(const p of cand){const rank=handScore([...p.cards,...state.cards.board]);if(!best||compare(rank,best)>0){best=rank;winners=[p]}else if(compare(rank,best)===0)winners.push(p)}
+const slice=Math.floor(pool/winners.length);let extra=pool%winners.length;for(const p of winners.sort((a,b)=>a.seat-b.seat)){award[p.seat]=(award[p.seat]||0)+slice+(extra-->0?1:0)}
+}
+if(Object.values(award).reduce((a,b)=>a+b,0)!==state.pot){alert('팟 금액 검증 실패. 핸드 정산을 중단합니다.');return}
+for(const [k,v] of Object.entries(award))get(Number(k)).stack+=v;
+state.history.unshift('쇼다운: '+Object.entries(award).map(([k,v])=>k+'번 +'+fmt(v)).join(' / '));
+state.games.unshift({at:new Date().toLocaleString('ko-KR'),hand:state.hand,winner:Object.keys(award).join(','),pot:state.pot,mode:state.mode,blind:state.sb+'/'+state.bb});
+state.games=state.games.slice(0,100);state.pot=0;
+if(state.gameType==='새틀라이트'&&[11,19,25].includes(state.pendingLevel)){state.paused='break';state.washQueued=true;state.washTarget=state.pendingLevel===11?[100,500]:state.pendingLevel===19?[1000]:[5000];if(state.pendingLevel===11)state.registrationOpen=false}
+else if(state.breakQueued){state.paused='break';state.breakQueued=false}
+else{applyPending();state.hand++;prepareHand();return}
+render()
+}
+const baseGame=game;
+game=function(){
+let html=baseGame();if(!state.players.length)return html;
+const p=get(state.selected),due=p?Math.max(0,(state.currentBet||0)-(p.roundPaid||0)):0;
+const widget='<div class="panel"><div class="between"><b>핸드 진행 · 쇼다운</b><span class="pill">'+E(state.street)+'</span></div><p class="small">선택 좌석 '+state.selected+'번 · 필요한 콜 <b>'+fmt(due)+'</b>칩 · 현재 베팅 '+fmt(state.currentBet||0)+'칩</p><p class="small muted">보드: '+E((state.cards.board||[]).join(' ')||'미입력')+' · 홀카드: '+E((p?.cards||[]).join(' ')||'미입력')+'</p><div class="grid2"><button onclick="plcInputHole()">선택 좌석 카드 입력</button><button onclick="plcInputBoard()">보드 입력</button><button class="primary" onclick="plcShowdown()">쇼다운 자동 판정</button><button onclick="plcNextStreet()">다음 스트리트</button></div><p class="tiny muted">카드가 불완전하면 임의로 승자를 결정하지 않습니다. 전체 베팅·사이드팟은 실제 경기 사용 전 검증이 필요합니다.</p></div>';
+return html.replace('<div class="panel"><b>최근 액션</b>',widget+'<div class="panel"><b>최근 액션</b>');
+};
+window.plcInputHole=inputHole;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
+})();

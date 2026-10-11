@@ -134,12 +134,12 @@ function manualNextHand(){
    if(players.length===1){finish(players[0].seat);return}
    const allIn=players.some(p=>p.stack===0);
    const different=players.some(p=>(p.contributed||0)!==(players[0]?.contributed||0));
-   if(allIn||different){alert('올인 또는 사이드팟/금액 차이가 있어 수동 승자 지정은 차단됩니다. 카드를 입력하고 쇼다운으로 정산하세요.');return}
+   if(allIn){alert('올인 상황은 수동 승자 지정을 차단합니다. 카드를 입력하고 쇼다운으로 정산하세요.');return}
    const choice=prompt('다음 핸드 진행: 현재 팟 '+fmt(state.pot)+'칩을 받을 승자 좌석 번호를 입력하세요. (취소하면 유지)');
    if(choice===null)return;
    const n=Number(choice);const winner=players.find(p=>p.seat===n);
    if(!winner){alert('현재 핸드에 남아 있는 참가 좌석 번호를 입력하세요.');return}
-   if(!confirm(n+'번에게 '+fmt(state.pot)+'칩을 지급하고 다음 핸드로 진행할까요?'))return;
+   if(!confirm(n+'번에게 팟 '+fmt(state.pot)+'칩을 지급하고 다음 핸드로 진행할까요? 미콜 금액이 남았다면 먼저 확인하세요.'))return;
    finish(n);return
  }
  if(!confirm('팟이 0칩입니다. 새 핸드를 시작할까요?'))return;

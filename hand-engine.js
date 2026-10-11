@@ -126,5 +126,24 @@ const p=get(state.selected),due=p?Math.max(0,(state.currentBet||0)-(p.roundPaid|
 const widget='<div class="panel"><div class="between"><b>핸드 진행 · 쇼다운</b><span class="pill">'+E(state.street)+'</span></div><p class="small">선택 좌석 '+state.selected+'번 · 필요한 콜 <b>'+fmt(due)+'</b>칩 · 현재 베팅 '+fmt(state.currentBet||0)+'칩</p><p class="small muted">보드: '+E((state.cards.board||[]).join(' ')||'미입력')+' · 홀카드: '+E((p?.cards||[]).join(' ')||'미입력')+'</p><div class="grid2"><button onclick="plcInputHole()">선택 좌석 카드 입력</button><button onclick="plcInputBoard()">보드 입력</button><button class="primary" onclick="plcShowdown()">쇼다운 자동 판정</button><button onclick="plcNextStreet()">다음 스트리트</button></div><p class="tiny muted">카드가 불완전하면 임의로 승자를 결정하지 않습니다. 전체 베팅·사이드팟은 실제 경기 사용 전 검증이 필요합니다.</p></div>';
 return html.replace('<div class="panel"><b>최근 액션</b>',widget+'<div class="panel"><b>최근 액션</b>');
 };
-window.plcInputHole=inputHole;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
+function manualNextHand(){
+ const players=state.players.filter(p=>!p.folded&&(p.contributed||0)>0);
+ if(state.paused==='break'||state.paused==='wash'){alert('브레이크 또는 워싱을 완료한 뒤 다음 핸드로 진행하세요.');return}
+ if(!state.players.length)return;
+ if(state.pot>0){
+   if(players.length===1){finish(players[0].seat);return}
+   const allIn=players.some(p=>p.stack===0);
+   const different=players.some(p=>(p.contributed||0)!==(players[0]?.contributed||0));
+   if(allIn||different){alert('올인 또는 사이드팟/금액 차이가 있어 수동 승자 지정은 차단됩니다. 카드를 입력하고 쇼다운으로 정산하세요.');return}
+   const choice=prompt('다음 핸드 진행: 현재 팟 '+fmt(state.pot)+'칩을 받을 승자 좌석 번호를 입력하세요. (취소하면 유지)');
+   if(choice===null)return;
+   const n=Number(choice);const winner=players.find(p=>p.seat===n);
+   if(!winner){alert('현재 핸드에 남아 있는 참가 좌석 번호를 입력하세요.');return}
+   if(!confirm(n+'번에게 '+fmt(state.pot)+'칩을 지급하고 다음 핸드로 진행할까요?'))return;
+   finish(n);return
+ }
+ if(!confirm('팟이 0칩입니다. 새 핸드를 시작할까요?'))return;
+ state.paused='';applyPending();state.hand++;prepareHand();render()
+}
+window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
 })();

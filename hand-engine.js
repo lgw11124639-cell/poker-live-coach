@@ -20,10 +20,23 @@ function initHand(first=false){
  state.currentBet=Math.max(get(bb).roundPaid,get(sb).roundPaid);
  state.lastRaise=state.bb;state.actions=0;
  state.selected=at.length===2?sb:seatNext(bb,at);
- state.history.unshift('#'+state.hand+' 핸드 시작 '+fmt(state.sb)+'/'+fmt(state.bb));
+ resetActionToFirst();state.history.unshift('#'+state.hand+' 핸드 시작 '+fmt(state.sb)+'/'+fmt(state.bb));
  render();
 }
 prepareHand=initHand;
+function firstToAct(){
+ const players=eligible().filter(p=>p.stack>0);
+ if(!players.length)return 0;
+ const at=state.players.filter(p=>!p.folded&&(p.stack>0||(p.contributed||0)>0));
+ if(state.street!=='PREFLOP')return seatNext(state.button,players);
+ const sb=at.length===2?state.button:seatNext(state.button,at);
+ const bb=seatNext(sb,at);
+ return at.length===2?(players.some(p=>p.seat===sb)?sb:seatNext(sb,players)):seatNext(bb,players)
+}
+function resetActionToFirst(){
+ if(state.street==='PREFLOP'&&state.actions===0&&!state.paused){const n=firstToAct();if(n)state.selected=n}
+}
+window.plcResetToUTG=resetActionToFirst;
 function nextActor(from){
 const act=eligible().filter(p=>p.stack>0);
 if(!act.length)return 0;
@@ -38,7 +51,7 @@ if(state.paused==='showdown'){alert('이미 쇼다운 상태입니다. 카드를
 const streets=['PREFLOP','FLOP','TURN','RIVER'];
 if(state.street==='RIVER'||eligible().every(p=>p.stack<=0)){state.paused='showdown';state.history.unshift('쇼다운 · 카드 입력 또는 승자 확인 필요');return}
 state.street=streets[streets.indexOf(state.street)+1];
-state.currentBet=0;state.lastRaise=state.bb;
+state.currentBet=0;state.actions=0;state.lastRaise=state.bb;
 state.players.forEach(p=>{p.roundPaid=0;p.acted=false});
 const act=eligible().filter(p=>p.stack>0);
 state.selected=act.length?seatNext(state.button,act):state.button;
@@ -59,6 +72,7 @@ else{
  else if(kind==='CALL')p.calls++;
  p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(amount)+'칩');state.amount=0
 }
+state.actions=(state.actions||0)+1;
 const remaining=eligible();
 if(remaining.length===1){finish(remaining[0].seat);return}
 if(streetDone())streetNext();
@@ -95,7 +109,7 @@ function showPicker(){
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];picker=null;d.remove();render()};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];picker=null;d.remove();if(state.street==='PREFLOP'&&state.actions===0){resetActionToFirst()}render()};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
 function inputBoard(){openPicker('board')}

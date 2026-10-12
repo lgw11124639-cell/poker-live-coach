@@ -335,6 +335,7 @@ function settle(){
 function advance(){
  let remaining=active();if(remaining.length===1){settle();return}
  let pending=remaining.filter(p=>p.stack>0&&(!p.acted||p.paid<G.bet));
+ if(remaining.filter(p=>p.stack>0).length===1&&pending.length===1&&pending[0].paid>=G.bet)pending=[];
  if(pending.length){G.turn=seatAfter(G.turn,pending.map(p=>p.seat));save();drive();return}
  if(G.street==='RIVER'){settle();return}
  G.street=({PREFLOP:'FLOP',FLOP:'TURN',TURN:'RIVER'})[G.street];
@@ -371,7 +372,6 @@ function ai(){
  if(!good&&Math.random()<.38){action('fold');return}
  action('call');return
  }
- let strength=score([...p.hole,...G.board,...G.deck.slice(0,5-G.board.length)] )[0]; // approximate hidden runout for AI decision only
  let made=G.board.some(c=>c[0]===p.hole[0][0]||c[0]===p.hole[1][0])||pair;
  if(due){if(!made&&due>G.pot*.33&&Math.random()<.72){action('fold');return}action('call');return}
  if(made&&Math.random()<.52&&p.stack>G.bb){action('raise',Math.min(p.stack+p.paid,Math.max(G.bb,Math.floor(G.pot*.42/G.bb)*G.bb)));return}

@@ -93,7 +93,8 @@ function act(kind){
  state.actions=(state.actions||0)+1;
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}
- if(streetDone()||eligible().filter(q=>q.stack>0).length<=1){if(state.street!=='RIVER'&&eligible().filter(q=>q.stack>0).length<=1)state.runoutPending=true;streetNext()}
+ const able=eligible().filter(q=>q.stack>0);const runoutReady=able.length<=1&&able.every(q=>q.acted&&q.roundPaid>=state.currentBet);
+ if(streetDone()||runoutReady){if(state.street!=='RIVER'&&runoutReady)state.runoutPending=true;streetNext()}
  else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
  render()
 }

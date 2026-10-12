@@ -38,46 +38,58 @@ function resetActionToFirst(){
 }
 window.plcResetToUTG=resetActionToFirst;
 function nextActor(from){
-const act=eligible().filter(p=>p.stack>0);
-if(!act.length)return 0;
-let n=seatNext(from,act);return n
+ const act=eligible().filter(p=>p.stack>0&&(!p.acted||p.roundPaid<state.currentBet));
+ if(!act.length)return 0;
+ return seatNext(from,act)
 }
 function streetDone(){
-const can=eligible().filter(p=>p.stack>0);
-return can.every(p=>p.acted&&p.roundPaid>=state.currentBet);
+ const can=eligible().filter(p=>p.stack>0);
+ return can.every(p=>p.acted&&p.roundPaid>=state.currentBet)
 }
 function streetNext(){
-if(state.paused==='showdown'){alert('이미 쇼다운 상태입니다. 카드를 입력하고 판정하거나 다음 핸드에서 승자를 지정하세요.');return}
-const streets=['PREFLOP','FLOP','TURN','RIVER'];
-if(state.street==='RIVER'||eligible().every(p=>p.stack<=0)){state.paused='showdown';state.history.unshift('쇼다운 · 카드 입력 또는 승자 확인 필요');return}
-state.street=streets[streets.indexOf(state.street)+1];
-state.currentBet=0;state.actions=0;state.lastRaise=state.bb;
-state.players.forEach(p=>{p.roundPaid=0;p.acted=false});
-const act=eligible().filter(p=>p.stack>0);
-state.selected=act.length?seatNext(state.button,act):state.button;
-state.history.unshift(state.street+' 시작');
+ if(state.paused==='showdown'){alert('쇼다운 대기 중입니다.');return}
+ const streets=['PREFLOP','FLOP','TURN','RIVER'];
+ if(state.street==='RIVER'||eligible().filter(p=>p.stack>0).length<=1){
+   state.paused='showdown';state.history.unshift('쇼다운 · 카드 입력 또는 승자 확인 필요');render();return
+ }
+ state.street=streets[streets.indexOf(state.street)+1];
+ state.currentBet=0;state.actions=0;state.lastRaise=state.bb;
+ state.players.forEach(p=>{p.roundPaid=0;p.acted=false});
+ const act=eligible().filter(p=>p.stack>0);
+ state.selected=act.length?seatNext(state.button,act):state.button;
+ state.history.unshift(state.street+' 시작')
 }
 function act(kind){
-if(state.paused)return;
-const p=get(state.selected);if(!p||p.folded||p.stack<=0)return;mark(p);
-const due=Math.max(0,state.currentBet-p.roundPaid);
-if(kind==='FOLD'){p.folded=true;p.folds++;p.acted=true;state.history.unshift(p.seat+'번 폴드')}
-else if(kind==='CHECK'){if(due){alert('콜 '+fmt(due)+'칩이 필요합니다. 체크할 수 없습니다.');return}p.acted=true;state.history.unshift(p.seat+'번 체크')}
-else{
- let amount=kind==='CALL'?Math.min(due,p.stack):kind==='ALL-IN'?p.stack:Math.min(p.stack,Number(state.amount)||0);
- if(kind==='RAISE'&&amount<=due){alert('베팅/레이즈 금액은 현재 콜 금액보다 커야 합니다.');return}
- if(amount<=0){alert('입력할 칩이 없습니다.');return}
- p.stack-=amount;p.contributed+=amount;p.roundPaid+=amount;state.pot+=amount;
- if(p.roundPaid>state.currentBet){const jump=p.roundPaid-state.currentBet;state.currentBet=p.roundPaid;state.lastRaise=Math.max(state.lastRaise,jump);state.players.filter(q=>q.seat!==p.seat&&!q.folded&&q.stack>0).forEach(q=>q.acted=false);p.raises++}
- else if(kind==='CALL')p.calls++;
- p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(amount)+'칩');state.amount=0
-}
-state.actions=(state.actions||0)+1;
-const remaining=eligible();
-if(remaining.length===1){finish(remaining[0].seat);return}
-if(streetDone())streetNext();
-else {const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
-render()
+ if(state.paused)return;
+ const p=get(state.selected);if(!p||p.folded||p.stack<=0)return;mark(p);
+ const due=Math.max(0,state.currentBet-p.roundPaid);
+ if(kind==='FOLD'){p.folded=true;p.folds++;p.acted=true;state.history.unshift(p.seat+'번 폴드')}
+ else if(kind==='CHECK'){if(due){alert('콜 '+fmt(due)+'칩이 필요합니다.');return}p.acted=true;state.history.unshift(p.seat+'번 체크')}
+ else{
+  const amount=kind==='CALL'?Math.min(due,p.stack):kind==='ALL-IN'?p.stack:Math.min(p.stack,Number(state.amount)||0);
+  if(kind==='CALL'&&!due){alert('콜 금액이 없습니다. 체크를 누르세요.');return}
+  if(kind==='RAISE'){
+   if(amount<=due){alert('콜 금액 '+fmt(due)+'칩보다 큰 레이즈 금액을 선택하세요.');return}
+   const minRaise=state.currentBet===0?state.bb:state.lastRaise;
+   const raiseBy=p.roundPaid+amount-state.currentBet;
+   if(raiseBy<minRaise&&amount<p.stack){alert('최소 추가 레이즈 '+fmt(minRaise)+'칩이 필요합니다.');return}
+  }
+  if(amount<=0){alert('칩 금액을 선택하세요.');return}
+  p.stack-=amount;p.contributed+=amount;p.roundPaid+=amount;state.pot+=amount;
+  if(p.roundPaid>state.currentBet){
+   const jump=p.roundPaid-state.currentBet,full=jump>=state.lastRaise;
+   state.currentBet=p.roundPaid;
+   if(full){state.lastRaise=jump;state.players.filter(q=>q.seat!==p.seat&&!q.folded&&q.stack>0).forEach(q=>q.acted=false)}
+   p.raises++
+  }else if(kind==='CALL')p.calls++;
+  p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(amount)+'칩');state.amount=0
+ }
+ state.actions=(state.actions||0)+1;
+ const remaining=eligible();
+ if(remaining.length===1){finish(remaining[0].seat);return}
+ if(streetDone())streetNext();
+ else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
+ render()
 }
 betAction=act;fold=()=>act('FOLD');
 function parseCards(x){if(!x)return[];return x.trim().toUpperCase().replace(/10/g,'T').split(/[\s,;]+/).filter(Boolean).map(c=>{let m=c.match(/^([2-9TJQKA])([CDHS♣♦♥♠])$/);if(!m)throw Error('카드는 As Kh Qd 형식으로 입력해주세요');return m[1]+({'♣':'C','♦':'D','♥':'H','♠':'S'}[m[2]]||m[2])})}

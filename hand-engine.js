@@ -193,6 +193,7 @@ for(const [k,v] of Object.entries(award))get(Number(k)).stack+=v;
 state.history.unshift('쇼다운: '+Object.entries(award).map(([k,v])=>k+'번 +'+fmt(v)).join(' / '));
 state.games.unshift({at:new Date().toLocaleString('ko-KR'),hand:state.hand,winner:Object.keys(award).join(','),pot:state.pot,mode:state.mode,blind:state.sb+'/'+state.bb});
 state.games=state.games.slice(0,100);state.pot=0;
+if(state.players.filter(p=>p.stack>0).length<=1){state.paused='tournament-finished';state.washQueued=false;state.breakQueued=false;state.history.unshift('최종 생존자 확정 · 토너먼트 종료');render();return}
 if(state.gameType==='새틀라이트'&&[11,19,25].includes(state.pendingLevel)){state.paused='break';state.washQueued=true;state.washTarget=state.pendingLevel===11?[100,500]:state.pendingLevel===19?[1000]:[5000];if(state.pendingLevel===11)state.registrationOpen=false}
 else if(state.breakQueued){state.paused='break';state.breakQueued=false}
 else{applyPending();state.hand++;prepareHand();if(!state.paused&&state.heroSeat&&get(state.heroSeat)?.stack>0)heroHole();return}

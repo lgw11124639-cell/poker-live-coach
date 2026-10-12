@@ -48,9 +48,10 @@ function streetDone(){
  return can.every(p=>p.acted&&p.roundPaid>=state.currentBet)
 }
 function streetNext(){
- if(state.paused==='showdown'){alert('쇼다운 대기 중입니다.');return}
+ if(state.paused==='showdown'){if((state.cards?.board||[]).length<5){state.paused='';state.runoutPending=true}else{showShowdownEntry();return}}
  const streets=['PREFLOP','FLOP','TURN','RIVER'];
  if(state.street==='RIVER'){
+   if((state.cards?.board||[]).length<5){state.runoutPending=true;state.paused='';render();openPicker('board');return}
    state.paused='showdown';state.history.unshift('쇼다운 · 카드 공개 또는 먹 선택');render();showShowdownEntry();return
  }
  state.street=streets[streets.indexOf(state.street)+1];
@@ -93,9 +94,9 @@ function act(kind){
  state.actions=(state.actions||0)+1;
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}
- const able=eligible().filter(q=>q.stack>0);const runoutReady=able.length<=1&&able.every(q=>q.acted&&q.roundPaid>=state.currentBet);
+ const able=eligible().filter(q=>q.stack>0);const runoutReady=eligible().length>1&&able.length<=1&&able.every(q=>q.roundPaid>=state.currentBet);
  if(streetDone()||runoutReady){if(state.street!=='RIVER'&&runoutReady){state.runoutPending=true;state.allInShowdown=true}streetNext()}
- else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
+ else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else if(eligible().length>1){state.runoutPending=true;state.allInShowdown=true;streetNext()}}
  render()
 }
 betAction=act;fold=()=>act('FOLD');
@@ -220,6 +221,7 @@ function manualNextHand(){
  if(!confirm('팟이 0칩입니다. 새 핸드를 시작할까요?'))return;
  state.paused='';applyPending();state.hand++;prepareHand();render()
 }
+if(state.paused==='showdown'&&(state.cards?.board||[]).length<5&&state.players?.length){state.paused='';state.runoutPending=true;state.allInShowdown=eligible().some(p=>p.stack===0);if(state.street!=='RIVER')streetNext();else{render();openPicker('board')}}
 repairStaleShowdown();
 window.plcOpenBoard=inputBoard;window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
 })();

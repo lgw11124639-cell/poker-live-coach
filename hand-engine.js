@@ -10,7 +10,7 @@ function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
 function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
  state.paused='';state.boardEntryRequired=false;
- if(!first)state.button=seatNext(state.button,at);
+ if(!first){const requested=Number(state.nextDealerSeat);state.button=requested&&at.some(p=>p.seat===requested)?requested:seatNext(state.button,at);state.nextDealerSeat=0;}
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
  state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
  const sb=at.length===2?state.button:seatNext(state.button,at);

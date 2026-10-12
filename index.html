@@ -126,12 +126,12 @@ function coachPanel(){
 function playableCoachGame(){
  const me=getSeat(state.heroSeat),due=Math.max(0,(state.currentBet||0)-(me?.roundPaid||0));
  let h=header();
- h+='<div class="version-row"><span>POKER LIVE COACH · V60 · AI 코칭 검증 모드</span></div>';
+ h+='<div class="version-row"><span>POKER LIVE COACH · V61 · AI 코칭 검증 모드</span></div>';
  h+='<div class="compact-head"><div><b>LEVEL '+state.level+' · '+F(state.sb)+'/'+F(state.bb)+'</b><div class="tiny muted">#'+state.hand+' '+E(state.street)+' · BTN '+state.button+'번</div></div></div>';
  h+='<div class="compact-stats"><span>팟 <b>'+F(state.pot)+'</b></span><span>내 스택 <b>'+F(me?.stack||0)+'</b></span><span>내 콜 금액 <b>'+F(due)+'</b></span></div>';
  h+=tableHtml();
  h+='<div class="compact-panel"><b>🃏 '+state.heroSeat+'번 · 내 핸드</b><div class="board-line">'+((me?.cards||[]).map(cardFace).join('')||'카드 대기')+'</div><p class="tiny muted">상대는 자신의 홀카드와 공개 정보로 행동합니다. 코칭은 실제 게임 상태와 연결됩니다.</p></div>';
- h+='<div class="compact-panel"><div class="title">🎮 현재 차례 '+state.selected+'번 '+(state.selected===state.heroSeat?'· 나':'· AI')+'</div><div id="plc-play-actions"></div></div>';
+ h+='<div class="compact-panel"><div class="title">🎮 현재 차례 '+state.selected+'번 '+(state.selected===state.heroSeat?'· 나':'· AI')+'</div><div id="plc-play-actions">'+(window.plcTestControls?window.plcTestControls():'게임 컨트롤 로딩 중')+'</div></div>';
  h+=heroAdvicePanel();
  h+='<details class="seat-action-history" open><summary>📋 현재 핸드 액션 기록</summary><div id="plc-play-log"></div></details>';
  h+='<div class="compact-utility"><button onclick="plcTestReset()">새 테스트</button><button onclick="plcTestHome()">코치 홈으로</button></div>';
@@ -142,7 +142,7 @@ if(state.playableBridge)return playableCoachGame();
 const p=getSeat(state.selected),hero=getSeat(state.heroSeat),due=p?Math.max(0,(state.currentBet||0)-(p.roundPaid||0)):0;
 const clockS=Math.max(0,Math.ceil((state.levelEndsAt-Date.now())/1000)),clock=String(Math.floor(clockS/60)).padStart(2,'0')+':'+String(clockS%60).padStart(2,'0');
 let h=header();
-h+='<div class="version-row"><span>POKER LIVE COACH · V60</span><button onclick="forceAppUpdate()">↻ 업데이트 확인</button></div>';
+h+='<div class="version-row"><span>POKER LIVE COACH · V61</span><button onclick="forceAppUpdate()">↻ 업데이트 확인</button></div>';
 h+='<div class="compact-head"><div><b>LEVEL '+state.level+' · '+F(state.sb)+'/'+F(state.bb)+'</b><div class="tiny muted">TABLE '+F(state.table)+' · #'+state.hand+' '+E(state.street)+'</div></div><div class="compact-clock" id="timer-live">'+clock+'</div></div>';
 h+='<div class="compact-stats"><span>팟 <b>'+F(state.pot)+'</b></span><span>내 스택 <b>'+(hero?F(hero.stack):'미지정')+'</b></span><span>선택 좌석 콜 <b>'+F(due)+'</b></span></div>';
 h+=tableHtml();h+='<div class="compact-dealer-controls"><span>⚪ D 딜러: '+F(state.button)+'번'+(state.nextDealerSeat?' · 다음 '+F(state.nextDealerSeat)+'번':'')+'</span><button onclick="chooseDealer()">선택 좌석을 딜러로</button><button onclick="nextLevelManually()">'+(state.pendingLevel?'블라인드 업 예약 취소':'▲ 블라인드 업')+'</button></div>';const boardNeed=state.street==='FLOP'?3:state.street==='TURN'?4:state.street==='RIVER'?5:0;const boardCount=(state.cards?.board||[]).length;if(boardNeed&&boardCount<boardNeed)h+='<button class="board-callout" onclick="plcInputBoard()">🃏 '+(state.street==='FLOP'?'플랍 3장':state.street==='TURN'?'턴 1장': '리버 1장')+' 선택하기 · '+boardCount+'/'+boardNeed+'</button>';
@@ -297,7 +297,7 @@ function selectSeat(n){state.selected=n;render()}function balanceTable(){
  if(typeof window.plcHeroHole==='function')window.plcHeroHole()
 }
 function chooseDealer(){const p=getSeat(state.selected);if(!p||p.stack<=0){alert('칩이 남아 있는 좌석만 딜러로 지정할 수 있습니다.');return}state.nextDealerSeat=state.selected;state.history.unshift(state.selected+'번 딜러 버튼 지정 · 다음 핸드부터 적용');alert(state.selected+'번을 다음 핸드 딜러로 지정했습니다. 현재 핸드의 액션 순서는 유지됩니다.');render()}function setHeroSeat(){if(!getSeat(state.selected))return;state.heroSeat=state.selected;state.history.unshift('내 자리 '+state.heroSeat+'번 지정');if(typeof window.plcResetToUTG==='function')window.plcResetToUTG();render();if(typeof window.plcHeroHole==='function'){try{window.plcHeroHole()}catch(err){alert('카드 선택창 오류: '+err.message)}}else alert('카드 엔진이 로드되지 않았습니다. 새로고침해주세요.')}function addChip(n){state.amount+=n;state.chipPadOpen=true;render()}function clearAmount(){state.amount=0;render()}function toggleChipPad(v){state.chipPadOpen=!!v;render()}function setAmount(n){state.amount=n;render()}function toggleRaiseMenu(){state.raiseMenuOpen=!state.raiseMenuOpen;render()}function quickRaise(mult){const p=getSeat(state.selected);if(!p)return;const base=state.currentBet>0?state.currentBet:state.bb;state.amount=Math.min(p.stack+(p.roundPaid||0),base*mult);state.raiseMenuOpen=false;betAction("RAISE")}function quickAllIn(){state.raiseMenuOpen=false;betAction("ALL-IN")}function quickPotBet(q){const p=getSeat(state.selected);if(!p)return;const unit=Math.min(...DENOMS.filter(c=>!state.wash.includes(c.v)).map(c=>c.v));const raw=Math.max(state.bb,Math.round((state.pot||0)*q/unit)*unit);state.amount=Math.min(p.stack+(p.roundPaid||0),raw);state.raiseMenuOpen=false;betAction("RAISE")}function toggleQueue(k){state[k]=!state[k];render()}function washChip(v){if(!state.wash.includes(v))state.wash.push(v);render()}function advanceStreet(){const a=['PREFLOP','FLOP','TURN','RIVER'];state.street=a[Math.min(3,a.indexOf(state.street)+1)];state.history.unshift('#'+state.hand+' '+state.street+' 시작');render()}function changeBlind(){const b=prompt('새 BB 칩 단위',state.bb);if(b===null)return;const n=Number(b);if(!Number.isFinite(n)||n<=0)return;state.bb=n;state.sb=n/2;render()};render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
-</script><script src="./hand-engine.js?v=60"></script>
+</script><script src="./hand-engine.js?v=61"></script>
 <script>
 /* Independent local-only 9-seat playable tournament V57. */
 (function(){
@@ -439,8 +439,9 @@ window.plcTestAct=(k)=>action(k);
 window.plcTestRaise=()=>{let t=Number(document.getElementById('plc-test-raise').value);action('raise',t)};
 window.plcTestNext=nextHand;
 window.plcTestStep=stepAI;
+window.plcTestControls=()=>{if(!G)return '';let h=pl(G.hero),turn=G.phase==='play'&&G.turn===G.hero&&!h.fold&&h.stack>0,due=Math.max(0,G.bet-h.paid),min=G.bet?G.bet+G.minRaise:G.bb,max=h.stack+h.paid;if(turn)return '<div class="compact-actions"><button class="danger" onclick="plcTestAct(&quot;fold&quot;)">폴드</button><button onclick="plcTestAct(&quot;'+(due?'call':'check')+'&quot;)">'+(due?'콜 '+fmt(Math.min(due,h.stack)):'체크')+'</button><button onclick="plcTestAct(&quot;allin&quot;)">올인</button></div><div class="compact-amount">레이즈 총액 <input id="plc-test-raise" type="number" value="'+Math.min(max,Math.max(min,G.bb*3))+'" min="'+min+'" max="'+max+'" style="width:130px;color:#111;background:#fff"> <button class="primary" onclick="plcTestRaise()">베팅 / 레이즈</button></div>';if(G.phase==='between')return '<button class="primary" onclick="plcTestNext()">▶ 다음 핸드</button>';if(G.phase==='finished')return '토너먼트 종료';return '<button class="primary" onclick="plcTestStep()">▶ '+G.turn+'번 AI 행동 보기</button>'};
 window.plcTestHome=()=>{document.getElementById('plc-test-overlay')?.remove();state.playableBridge=false;state.screen='home';render()};
-window.plcTestReset=()=>{if(confirm('테스트를 처음부터 다시 시작할까요?')){G=null;localStorage.removeItem(KEY);choose()}};
+window.plcTestReset=()=>{if(confirm('테스트를 처음부터 다시 시작할까요?')){G=null;localStorage.removeItem(KEY);open()}};
 window.plcTestStart=()=>{try{let raw=localStorage.getItem(KEY);G=raw?JSON.parse(raw):null;if(!G||!Array.isArray(G.p)||G.p.length!==9)G=null}catch(e){G=null}open()};
 })();
 </script></body></html>

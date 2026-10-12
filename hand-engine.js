@@ -9,7 +9,7 @@ const isAll=p=>p.stack<=0;
 function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
 function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
- state.paused='';state.boardEntryRequired=false;state.runoutPending=false;
+ state.paused='';state.boardEntryRequired=false;state.runoutPending=false;state.allInShowdown=false;
  if(!first){const requested=Number(state.nextDealerSeat);state.button=requested&&at.some(p=>p.seat===requested)?requested:seatNext(state.button,at);state.nextDealerSeat=0;}
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
  state.handActions=[];state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
@@ -94,7 +94,7 @@ function act(kind){
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}
  const able=eligible().filter(q=>q.stack>0);const runoutReady=able.length<=1&&able.every(q=>q.acted&&q.roundPaid>=state.currentBet);
- if(streetDone()||runoutReady){if(state.street!=='RIVER'&&runoutReady)state.runoutPending=true;streetNext()}
+ if(streetDone()||runoutReady){if(state.street!=='RIVER'&&runoutReady){state.runoutPending=true;state.allInShowdown=true}streetNext()}
  else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
  render()
 }
@@ -139,11 +139,12 @@ const showdownParticipants=()=>state.players.filter(p=>p.folded!==true&&(p.contr
 function showShowdownEntry(){
  document.getElementById('plc-showdown-entry')?.remove();
  if(state.paused!=='showdown')return;
+ const allIn=!!state.allInShowdown; if(allIn)showdownParticipants().forEach(p=>p.mucked=false);
  const d=document.createElement('div');d.id='plc-showdown-entry';
  d.style.cssText='position:fixed;inset:0;z-index:9000;background:#07101bee;display:flex;align-items:center;justify-content:center;padding:12px';
  const panel=document.createElement('div');panel.style.cssText='width:min(100%,520px);max-height:90dvh;overflow:auto;border-radius:18px;padding:16px;background:#152137;color:#fff';
- const title=document.createElement('h2');title.textContent='🃏 쇼다운 · 남은 '+showdownParticipants().length+'명';panel.append(title);
- const info=document.createElement('p');info.textContent='폴드한 좌석은 제외됩니다. 남은 플레이어만 카드 공개 또는 먹(Muck)을 선택하세요.';info.style.cssText='font-size:13px;color:#c4cedb';panel.append(info);
+ const title=document.createElement('h2');title.textContent=(allIn?'🃏 올인 쇼다운 · ':'🃏 쇼다운 · ')+'남은 '+showdownParticipants().length+'명';panel.append(title);
+ const info=document.createElement('p');info.textContent=allIn?'올인 쇼다운: 폴드하지 않은 플레이어의 카드를 모두 공개해야 합니다. 먹(Muck)은 사용할 수 없습니다.':'폴드한 좌석은 제외됩니다. 남은 플레이어만 카드 공개 또는 먹(Muck)을 선택하세요.';info.style.cssText='font-size:13px;color:#c4cedb';panel.append(info);
  for(const p of showdownParticipants()){
   const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px solid #36465b;padding:11px 0';
   const label=document.createElement('span');label.textContent=p.seat+'번 '+(p.seat===state.heroSeat?'ME ':'')+(p.mucked?'먹(Muck)':(p.cards||[]).length===2?p.cards.map(displayCard).join(' '):'미공개');
@@ -152,7 +153,7 @@ function showShowdownEntry(){
   reveal.onclick=()=>{p.mucked=false;state.selected=p.seat;d.remove();openPicker('hole')};
   const muck=document.createElement('button');muck.textContent=p.mucked?'먹 취소':'먹(Muck)';muck.style.cssText='padding:9px;font-size:12px;background:#38475d;color:white';
   muck.onclick=()=>{if(!p.mucked&&showdownParticipants().filter(x=>!x.mucked).length===1){alert('마지막 승리 가능 플레이어는 먹 처리할 수 없습니다.');return}p.mucked=!p.mucked;render();showShowdownEntry()};
-  row.append(reveal,muck);panel.append(row)
+  if(allIn)row.append(reveal);else row.append(reveal,muck);panel.append(row)
  }
  const settle=document.createElement('button');settle.textContent='✓ 쇼다운 정산 → 다음 핸드';
  settle.style.cssText='width:100%;padding:15px;margin-top:12px;background:#d9b971;color:#15161c;font-weight:900';
@@ -163,6 +164,7 @@ function showShowdownEntry(){
 }
 window.plcShowdownEntry=showShowdownEntry;
 function showdown(){
+if(state.allInShowdown){showdownParticipants().forEach(p=>p.mucked=false)}
 const players=showdownParticipants().filter(p=>!p.mucked);
 if(!players.length){alert('승리할 플레이어가 없습니다. 먹 처리 상태를 확인하세요.');return}
 if((state.cards.board||[]).length!==5||(players.length>1&&players.some(p=>(p.cards||[]).length!==2))){alert('쇼다운 참여자의 공개 카드 2장과 보드 5장이 필요합니다. 먹한 플레이어 카드는 필요하지 않습니다.');return}

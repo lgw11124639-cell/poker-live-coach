@@ -126,7 +126,7 @@ function coachPanel(){
 function playableCoachGame(){
  const me=getSeat(state.heroSeat),due=Math.max(0,(state.currentBet||0)-(me?.roundPaid||0));
  let h=header();
- h+='<div class="version-row"><span>POKER LIVE COACH · V61 · AI 코칭 검증 모드</span></div>';
+ h+='<div class="version-row"><span>POKER LIVE COACH · V62 · AI 코칭 검증 모드</span></div>';
  h+='<div class="compact-head"><div><b>LEVEL '+state.level+' · '+F(state.sb)+'/'+F(state.bb)+'</b><div class="tiny muted">#'+state.hand+' '+E(state.street)+' · BTN '+state.button+'번</div></div></div>';
  h+='<div class="compact-stats"><span>팟 <b>'+F(state.pot)+'</b></span><span>내 스택 <b>'+F(me?.stack||0)+'</b></span><span>내 콜 금액 <b>'+F(due)+'</b></span></div>';
  h+=tableHtml();
@@ -142,7 +142,7 @@ if(state.playableBridge)return playableCoachGame();
 const p=getSeat(state.selected),hero=getSeat(state.heroSeat),due=p?Math.max(0,(state.currentBet||0)-(p.roundPaid||0)):0;
 const clockS=Math.max(0,Math.ceil((state.levelEndsAt-Date.now())/1000)),clock=String(Math.floor(clockS/60)).padStart(2,'0')+':'+String(clockS%60).padStart(2,'0');
 let h=header();
-h+='<div class="version-row"><span>POKER LIVE COACH · V61</span><button onclick="forceAppUpdate()">↻ 업데이트 확인</button></div>';
+h+='<div class="version-row"><span>POKER LIVE COACH · V62</span><button onclick="forceAppUpdate()">↻ 업데이트 확인</button></div>';
 h+='<div class="compact-head"><div><b>LEVEL '+state.level+' · '+F(state.sb)+'/'+F(state.bb)+'</b><div class="tiny muted">TABLE '+F(state.table)+' · #'+state.hand+' '+E(state.street)+'</div></div><div class="compact-clock" id="timer-live">'+clock+'</div></div>';
 h+='<div class="compact-stats"><span>팟 <b>'+F(state.pot)+'</b></span><span>내 스택 <b>'+(hero?F(hero.stack):'미지정')+'</b></span><span>선택 좌석 콜 <b>'+F(due)+'</b></span></div>';
 h+=tableHtml();h+='<div class="compact-dealer-controls"><span>⚪ D 딜러: '+F(state.button)+'번'+(state.nextDealerSeat?' · 다음 '+F(state.nextDealerSeat)+'번':'')+'</span><button onclick="chooseDealer()">선택 좌석을 딜러로</button><button onclick="nextLevelManually()">'+(state.pendingLevel?'블라인드 업 예약 취소':'▲ 블라인드 업')+'</button></div>';const boardNeed=state.street==='FLOP'?3:state.street==='TURN'?4:state.street==='RIVER'?5:0;const boardCount=(state.cards?.board||[]).length;if(boardNeed&&boardCount<boardNeed)h+='<button class="board-callout" onclick="plcInputBoard()">🃏 '+(state.street==='FLOP'?'플랍 3장':state.street==='TURN'?'턴 1장': '리버 1장')+' 선택하기 · '+boardCount+'/'+boardNeed+'</button>';
@@ -258,6 +258,38 @@ function heroAdvicePanel(){
  if(target>0)target=Math.min(limit,Math.max(current?current+Math.max(bb,Number(state.lastRaise)||bb):bb,target));
  const shortAllIn=target>0&&limit<Math.max(current+(Number(state.lastRaise)||bb),bb);
  if(shortAllIn)target=limit;
+ if(state.playableBridge&&myTurn){
+  const high=rank.map(r=>'23456789TJQKA'.indexOf(r)+2).sort((a,b)=>b-a),premiumPair=pair&&high[0]>=11;
+  const top=high[0],low=high[1],gap=top-low;
+  const good= premiumPair||top===14&&low>=11||pair&&high[0]>=8||suited&&top>=11&&gap<=2;
+  const medium=pair||top===14&&low>=8||top>=12&&low>=10||suited&&gap<=3&&top>=10;
+  const activeRaises=acts.length;
+  const betLarge=due>Math.max(bb*8,pot*.35);
+  if(pre){
+   if(!activeRaises&&due<=bb){
+    if(good){advice='레이즈 추천';target=round(bb*(position==='SB'?3:2.5));why='현재 핸드와 포지션에서 먼저 팟에 참여하는 공격적 오픈을 추천합니다.'}
+    else if(medium&&['BTN','CO','HJ','SB'].includes(position)){advice='레이즈 추천';target=round(bb*2.5);why='후반 포지션과 플레이 가능한 핸드를 고려한 오픈입니다.'}
+    else if(due===0){advice='체크 추천';target=0;why='추가 비용 없이 플랍을 볼 수 있습니다.'}
+    else{advice='폴드 추천';target=0;why='현재 핸드는 이 포지션에서 무리하게 참여할 필요가 적습니다.'}
+   }else{
+    if(premiumPair||top===14&&low>=12){advice='3벳 추천';target=round(Math.max(current*3,current+state.lastRaise));why='강한 프리플랍 핸드로 상대 오픈에 대응합니다.'}
+    else if(medium&&!betLarge&&due<=bb*4){advice='콜 추천';target=0;why='상대 오픈에 대한 콜을 검토할 수 있지만, 뒤에 남은 플레이어도 고려해야 합니다.'}
+    else{advice='폴드 추천';target=0;why='현재 핸드에 비해 콜 가격과 상대의 공격성이 부담됩니다.'}
+   }
+  }else{
+   const boardRanks=board.map(c=>c[0]),hits=rank.filter(x=>boardRanks.includes(x)).length;
+   const all=[...cards,...board],freq={};all.forEach(c=>freq[c[0]]=(freq[c[0]]||0)+1);
+   const groups=Object.values(freq),strong=groups.some(x=>x>=3)||groups.filter(x=>x>=2).length>=2;
+   const draw='SHDC'.split('').some(x=>all.filter(c=>c[1]===x).length===4);
+   const made=strong||hits>0||pair;
+   if(due){
+    if(strong&&due<=pot*.5){advice='레이즈 추천';target=round(current+Math.max(state.lastRaise,pot*.65));why='강한 메이드 핸드로 밸류를 얻을 기회입니다.'}
+    else if((made||draw)&&due<=Math.max(bb*4,pot*.4)){advice='콜 추천';target=0;why='핸드 강도와 콜 비용을 함께 고려한 선택입니다.'}
+    else{advice='폴드 추천';target=0;why='현재 메이드 핸드·드로우와 베팅 압박을 고려하면 폴드가 우선입니다.'}
+   }else if(strong){advice='베팅 추천';target=round(Math.max(bb,pot*.5));why='강한 메이드 핸드로 밸류 베팅을 추천합니다.'}
+   else{advice='체크 추천';target=0;why='현재는 무료 체크가 가능하며 불필요한 큰 팟을 피합니다.'}
+  }
+ }
  const sized=target>0&&myTurn?'<div class="sizing-tip"><b>💰 검토할 '+(current?'레이즈 총액':'베팅액')+': '+F(target)+'칩'+(shortAllIn?' (스택 한도)':'')+'</b><p>추가 투입 '+F(Math.max(0,target-paid))+'칩 · '+E(why)+'</p></div>':'<p>'+E(why)+'</p>';
  const mixHtml='';
   const icmConfigured=(state.icmPayouts||[]).length>0;
@@ -266,7 +298,7 @@ function heroAdvicePanel(){
  '<div class="hero-equity"><strong>'+calc.equity+'%</strong><span>무작위 상대 '+count+'명 기준 단순 쇼다운 추정 · '+calc.trials+'회 시뮬레이션 (실제 오픈 레인지 미반영)</span></div>'+
  '<div class="coach-meta">포지션 '+E(position)+' · 내 스택 '+stackBB.toFixed(1)+'BB · SPR '+(spr===null?'—':spr.toFixed(2))+' · 현재 팟 '+F(pot)+' · 콜 '+F(due)+' · 팟오즈 '+toCallOdds+'%</div>'+
  mixHtml+
- (myTurn?'<div><b>검토 액션: '+E(advice)+'</b></div>'+sized:'<p class="coach-note"><b>현재 '+E(state.selected)+'번 액션 차례 · 내 자리 '+E(state.heroSeat)+'번.</b> 내 차례가 오면 추천 액션과 금액을 표시합니다.</p>')+
+ (myTurn?'<div style="padding:12px;background:#24394c;border-radius:12px;margin:10px 0"><b style="font-size:22px;color:#7ce2be">🎯 '+E(advice)+'</b><p>'+E(why)+'</p></div>'+sized:'<p class="coach-note"><b>현재 '+E(state.selected)+'번 액션 차례 · 내 자리 '+E(state.heroSeat)+'번.</b> 내 차례가 오면 추천 액션과 금액을 표시합니다.</p>')+
  icm+'<p class="coach-note">프리플랍 레인지·베팅 크기 규칙 기반 참고 분석입니다. 시뮬레이션 승률은 상대 추정 레인지·폴드 에퀴티·ICM·향후 베팅을 반영하지 않으며, 추천은 최적 전략이 아닙니다.</p></details>'
 }
 function selectSeat(n){state.selected=n;render()}function balanceTable(){
@@ -297,7 +329,7 @@ function selectSeat(n){state.selected=n;render()}function balanceTable(){
  if(typeof window.plcHeroHole==='function')window.plcHeroHole()
 }
 function chooseDealer(){const p=getSeat(state.selected);if(!p||p.stack<=0){alert('칩이 남아 있는 좌석만 딜러로 지정할 수 있습니다.');return}state.nextDealerSeat=state.selected;state.history.unshift(state.selected+'번 딜러 버튼 지정 · 다음 핸드부터 적용');alert(state.selected+'번을 다음 핸드 딜러로 지정했습니다. 현재 핸드의 액션 순서는 유지됩니다.');render()}function setHeroSeat(){if(!getSeat(state.selected))return;state.heroSeat=state.selected;state.history.unshift('내 자리 '+state.heroSeat+'번 지정');if(typeof window.plcResetToUTG==='function')window.plcResetToUTG();render();if(typeof window.plcHeroHole==='function'){try{window.plcHeroHole()}catch(err){alert('카드 선택창 오류: '+err.message)}}else alert('카드 엔진이 로드되지 않았습니다. 새로고침해주세요.')}function addChip(n){state.amount+=n;state.chipPadOpen=true;render()}function clearAmount(){state.amount=0;render()}function toggleChipPad(v){state.chipPadOpen=!!v;render()}function setAmount(n){state.amount=n;render()}function toggleRaiseMenu(){state.raiseMenuOpen=!state.raiseMenuOpen;render()}function quickRaise(mult){const p=getSeat(state.selected);if(!p)return;const base=state.currentBet>0?state.currentBet:state.bb;state.amount=Math.min(p.stack+(p.roundPaid||0),base*mult);state.raiseMenuOpen=false;betAction("RAISE")}function quickAllIn(){state.raiseMenuOpen=false;betAction("ALL-IN")}function quickPotBet(q){const p=getSeat(state.selected);if(!p)return;const unit=Math.min(...DENOMS.filter(c=>!state.wash.includes(c.v)).map(c=>c.v));const raw=Math.max(state.bb,Math.round((state.pot||0)*q/unit)*unit);state.amount=Math.min(p.stack+(p.roundPaid||0),raw);state.raiseMenuOpen=false;betAction("RAISE")}function toggleQueue(k){state[k]=!state[k];render()}function washChip(v){if(!state.wash.includes(v))state.wash.push(v);render()}function advanceStreet(){const a=['PREFLOP','FLOP','TURN','RIVER'];state.street=a[Math.min(3,a.indexOf(state.street)+1)];state.history.unshift('#'+state.hand+' '+state.street+' 시작');render()}function changeBlind(){const b=prompt('새 BB 칩 단위',state.bb);if(b===null)return;const n=Number(b);if(!Number.isFinite(n)||n<=0)return;state.bb=n;state.sb=n/2;render()};render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
-</script><script src="./hand-engine.js?v=61"></script>
+</script><script src="./hand-engine.js?v=62"></script>
 <script>
 /* Independent local-only 9-seat playable tournament V57. */
 (function(){
@@ -382,27 +414,58 @@ function action(kind,target){
  advance()
 }
 function ai(){
- const p=pl(G.turn),t=p.profile||profiles[7],due=Math.max(0,G.bet-p.paid);
- const r=p.hole.map(c=>ranks.indexOf(c[0])+2).sort((a,b)=>b-a);
- const pair=r[0]===r[1],suited=p.hole[0][1]===p.hole[1][1],gap=r[0]-r[1];
- const pre=Math.min(1,(pair?.48+r[0]/20+r[1]/40:0)+(!pair?r[0]/21+r[1]/29+(suited?.13:0)+(gap<=2?.06:0):0));
- const strength=G.street==='PREFLOP'?pre:(G.board.length===5?score([...p.hole,...G.board])[0]/8:(p.hole[0][0]===p.hole[1][0]?.22:0)+p.hole.filter(c=>G.board.some(b=>b[0]===c[0])).length*.15);
- const boardRanks=G.board.map(c=>c[0]),hit=pair||p.hole.some(c=>boardRanks.includes(c[0]));
- const flushDraw=G.board.length>=3&&suits.split('').some(s=>[...p.hole,...G.board].filter(c=>c[1]===s).length>=4);
- const strong=G.street==='PREFLOP'?pre>.86:strength>=.25||hit;
- const loose=1-t.tight, bluffChance=t.bluff*(G.street==='PREFLOP'?.6:1);
- const willing=G.street==='PREFLOP'?pre+loose*.24> .57:strong||flushDraw||random()<bluffChance;
- const minTotal=G.bet?G.bet+G.minRaise:G.bb;
- const raiseTo=Math.min(p.stack+p.paid,Math.max(minTotal,Math.ceil((G.bet+G.pot*(.22+random()*.38))/G.bb)*G.bb));
- const canRaise=raiseTo>=minTotal&&raiseTo>G.bet&&p.stack>due+G.bb;
- if(due){
-  const pressure=due/Math.max(G.bb,G.pot);
-  const foldRate=Math.min(.98,Math.max(0,t.tight*.52+(pressure>.65?.22:0)-(willing?.45:0)-(t.name==='콜링스테이션'?.36:0)));
-  if(!willing&&random()<foldRate){action('fold');return}
-  if(canRaise&&random()<t.aggr*(strong?.36:bluffChance*.35)){action('raise',raiseTo);return}
+ const p=pl(G.turn),t=p.profile||profiles[7],due=Math.max(0,G.bet-p.paid),bb=G.bb;
+ const vals=p.hole.map(c=>ranks.indexOf(c[0])+2).sort((a,b)=>b-a),pair=vals[0]===vals[1],suited=p.hole[0][1]===p.hole[1][1],gap=vals[0]-vals[1];
+ const premium=pair&&vals[0]>=11||vals[0]===14&&vals[1]>=12;
+ const playable=pair&&vals[0]>=6||vals[0]>=12&&vals[1]>=10||vals[0]===14&&vals[1]>=9||suited&&vals[0]>=10&&gap<=3;
+ const marginal=pair||vals[0]>=11&&vals[1]>=8||suited&&gap<=3;
+ const loose=t.tight<.35,aggressive=t.aggr>.6;
+ const board=G.board,boardRanks=board.map(c=>c[0]);
+ const matches=p.hole.filter(c=>boardRanks.includes(c[0])).length;
+ const all=[...p.hole,...board];
+ const freq={};all.forEach(c=>freq[c[0]]=(freq[c[0]]||0)+1);
+ const maxGroup=Math.max(...Object.values(freq));
+ const hasPair=maxGroup>=2,hasTrips=maxGroup>=3;
+ const flushDraw=suits.split('').some(x=>all.filter(c=>c[1]===x).length>=4);
+ const madeStrong=board.length===5?score(all)[0]>=2:hasTrips||matches>=2;
+ const decentPost=madeStrong||matches>0||pair||flushDraw;
+ const expensive=due>Math.max(bb*5,G.pot*.38);
+ const huge=due>Math.max(bb*12,p.stack*.28);
+ if(G.street==='PREFLOP'){
+  if(due>0){
+   if(huge&&!premium){action('fold');return}
+   if(expensive&&!playable){action('fold');return}
+   if(!playable&&!(loose&&marginal&&random()<.42)){action('fold');return}
+   if(premium&&due<=bb*5&&p.stack>bb*15&&random()<t.aggr*.7){
+    let target=Math.min(p.stack+p.paid,Math.max(G.bet+G.minRaise,Math.round(G.bet*(2.7+random()*.7)/bb)*bb));
+    if(target>G.bet&&target>=G.bet+G.minRaise){action('raise',target);return}
+   }
+   action('call');return
+  }
+  if((premium||playable&&aggressive)&&random()<t.aggr*.65&&p.stack>bb*5){
+   let target=Math.min(p.stack+p.paid,Math.max(G.bet+G.minRaise,Math.round((2.2+random()*.8)*bb/bb)*bb));
+   if(target>G.bet&&target>=G.bet+G.minRaise){action('raise',target);return}
+  }
+  action('check');return
+ }
+ if(due>0){
+  if(huge&&!madeStrong){action('fold');return}
+  if(expensive&&!decentPost){action('fold');return}
+  if(!decentPost&&random()>(loose?.22:.06)){action('fold');return}
+  if(madeStrong&&due<=G.pot*.45&&random()<t.aggr*.3&&p.stack>due+bb*3){
+   let target=Math.min(p.stack+p.paid,G.bet+Math.max(G.minRaise,Math.round(G.pot*.6/bb)*bb));
+   if(target>=G.bet+G.minRaise){action('raise',target);return}
+  }
   action('call');return
  }
- if(canRaise&&random()<t.aggr*(strong?.56:bluffChance*.45)){action('raise',raiseTo);return}
+ if((madeStrong||decentPost&&aggressive)&&random()<t.aggr*.48&&p.stack>bb*2){
+  let target=Math.min(p.stack+p.paid,Math.max(bb,Math.round(G.pot*(.3+random()*.25)/bb)*bb));
+  if(target>=bb){action('raise',target);return}
+ }
+ if(!decentPost&&random()<t.bluff*.18&&p.stack>bb*3){
+  let target=Math.min(p.stack+p.paid,Math.max(bb,Math.round(G.pot*.3/bb)*bb));
+  if(target>=bb){action('raise',target);return}
+ }
  action('check')
 }
 function drive(){save();render()}

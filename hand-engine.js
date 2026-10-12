@@ -9,6 +9,7 @@ const isAll=p=>p.stack<=0;
 function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
 function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
+ state.paused='';state.boardEntryRequired=false;
  if(!first)state.button=seatNext(state.button,at);
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
  state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
@@ -186,7 +187,16 @@ const p=get(state.selected),due=p?Math.max(0,(state.currentBet||0)-(p.roundPaid|
 const widget='<div class="panel"><div class="between"><b>핸드 진행 · 쇼다운</b><span class="pill">'+E(state.street)+'</span></div><p class="small">선택 좌석 '+state.selected+'번 · 필요한 콜 <b>'+fmt(due)+'</b>칩 · 현재 베팅 '+fmt(state.currentBet||0)+'칩</p><p class="small muted">보드: '+E((state.cards.board||[]).join(' ')||'미입력')+' · 홀카드: '+E((p?.cards||[]).join(' ')||'미입력')+'</p><div class="grid2"><button onclick="plcInputHole()">선택 좌석 카드 입력</button><button onclick="plcInputBoard()">보드 입력</button><button class="primary" onclick="plcShowdown()">쇼다운 자동 판정</button><button onclick="plcNextStreet()">다음 스트리트</button></div><p class="tiny muted">카드가 불완전하면 임의로 승자를 결정하지 않습니다. 전체 베팅·사이드팟은 실제 경기 사용 전 검증이 필요합니다.</p></div>';
 return html.replace('<div class="panel"><b>최근 액션</b>',widget+'<div class="panel"><b>최근 액션</b>');
 };
+function repairStaleShowdown(){
+ if(state.street==='PREFLOP'&&state.paused==='showdown'&&state.players?.length){
+  state.paused='';state.boardEntryRequired=false;
+  state.history.unshift('새 핸드에 남아 있던 쇼다운 잠금 복구');
+  resetActionToFirst();render();return true
+ }
+ return false
+}
 function manualNextHand(){
+ if(repairStaleShowdown())return;
  const players=state.players.filter(p=>!p.folded&&(p.contributed||0)>0);
  if(state.paused==='break'||state.paused==='wash'){alert('브레이크 또는 워싱을 완료한 뒤 다음 핸드로 진행하세요.');return}
  if(!state.players.length)return;
@@ -205,5 +215,6 @@ function manualNextHand(){
  if(!confirm('팟이 0칩입니다. 새 핸드를 시작할까요?'))return;
  state.paused='';applyPending();state.hand++;prepareHand();render()
 }
+repairStaleShowdown();
 window.plcOpenBoard=inputBoard;window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
 })();

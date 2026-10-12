@@ -77,9 +77,8 @@ function act(kind){
   if(kind==='CALL'&&!due){alert('콜 금액이 없습니다. 체크를 누르세요.');return}
   if(kind==='RAISE'){
    if(target<=state.currentBet){alert('현재 베팅 '+fmt(state.currentBet)+'칩보다 높은 총 베팅액을 선택하세요.');return}
-   const minRaise=state.currentBet===0?state.bb:state.lastRaise;
-   const raiseBy=p.roundPaid+amount-state.currentBet;
-   if(raiseBy<minRaise&&amount<p.stack){alert('최소 추가 레이즈 '+fmt(minRaise)+'칩이 필요합니다.');return}
+   const minTotal=state.currentBet===0?state.bb:state.currentBet*2;
+   if(p.roundPaid+amount<minTotal&&amount<p.stack){alert('최소 레이즈 총액은 '+fmt(minTotal)+'칩입니다. (현재 베팅의 2배)');return}
   }
   if(amount<=0){alert('칩 금액을 선택하세요.');return}
   p.stack-=amount;p.contributed+=amount;p.roundPaid+=amount;state.pot+=amount;

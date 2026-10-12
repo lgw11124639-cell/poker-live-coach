@@ -9,7 +9,7 @@ const isAll=p=>p.stack<=0;
 function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
 function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
- state.paused='';state.boardEntryRequired=false;state.runoutPending=false;state.allInShowdown=false;
+ state.paused='';state.boardEntryRequired=false;state.runoutPending=false;state.allInShowdown=false;state.runoutCardEntry=false;
  if(!first){const requested=Number(state.nextDealerSeat);state.button=requested&&at.some(p=>p.seat===requested)?requested:seatNext(state.button,at);state.nextDealerSeat=0;}
  state.handPositionSeats=at.map(p=>p.seat);state.handPositionButton=state.button;
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
@@ -47,6 +47,18 @@ function nextActor(from){
 function streetDone(){
  const can=eligible().filter(p=>p.stack>0);
  return can.every(p=>p.acted&&p.roundPaid>=state.currentBet)
+}
+function continueAllInRunout(){
+ if(!state.runoutCardEntry)return false;
+ const missing=eligible().filter(p=>(p.cards||[]).length!==2);
+ if(missing.length){state.selected=missing[0].seat;render();openPicker('hole');return true}
+ state.runoutCardEntry=false;
+ streetNext();return true
+}
+function beginAllInRunout(){
+ state.runoutPending=true;state.allInShowdown=true;state.runoutCardEntry=true;
+ state.history.unshift('올인: 남은 참가자 홀카드 공개 후 보드 진행');
+ continueAllInRunout()
 }
 function streetNext(){
  if(state.paused==='showdown'){if((state.cards?.board||[]).length<5){state.paused='';state.runoutPending=true}else{showShowdownEntry();return}}
@@ -95,8 +107,8 @@ function act(kind){
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}
  const able=eligible().filter(q=>q.stack>0);const runoutReady=eligible().length>1&&able.length===0 || eligible().length>1&&able.length===1&&able.every(q=>q.roundPaid>=state.currentBet&&q.acted);
- if(streetDone()||runoutReady){if(runoutReady){state.runoutPending=true;state.allInShowdown=true}streetNext()}
- else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else if(eligible().length>1){state.runoutPending=true;state.allInShowdown=true;streetNext()}}
+ if(streetDone()||runoutReady){if(runoutReady)beginAllInRunout();else streetNext()}
+ else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else if(eligible().length>1)beginAllInRunout()}
  render()
 }
 betAction=act;fold=()=>act('FOLD');
@@ -129,7 +141,7 @@ function showPicker(){
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.paused==='showdown')showShowdownEntry();if(type==='board'&&state.runoutPending){state.runoutPending=false;if(state.street==='RIVER'){state.paused='showdown';render();showShowdownEntry()}else streetNext()}};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.runoutCardEntry){continueAllInRunout();return}if(type==='hole'&&state.paused==='showdown')showShowdownEntry();if(type==='board'&&state.runoutPending){state.runoutPending=false;if(state.street==='RIVER'){state.paused='showdown';render();showShowdownEntry()}else streetNext()}};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
 function inputBoard(){openPicker('board')}window.plcInputBoard=inputBoard;
@@ -226,7 +238,7 @@ function resumeAllInRunout(){
  const active=eligible();
  if(active.length<2){alert('쇼다운 참가자가 2명 이상이어야 합니다.');return}
  if((state.cards?.board||[]).length>=5){state.paused='showdown';showShowdownEntry();return}
- state.paused='';state.runoutPending=true;state.allInShowdown=active.some(p=>p.stack===0);
+ state.paused='';state.runoutPending=true;state.allInShowdown=active.some(p=>p.stack===0);state.runoutCardEntry=true;if(continueAllInRunout())return;
  if(state.street==='PREFLOP'||state.street==='FLOP'||state.street==='TURN'){streetNext()}
  else{state.street='RIVER';render();openPicker('board')}
 }

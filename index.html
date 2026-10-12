@@ -209,7 +209,7 @@ function heroAdvicePanel(){
  const me=getSeat(state.heroSeat),cards=me?.cards||[],board=state.cards?.board||[];
  if(cards.length!==2)return '<div class="coach-panel"><b>🎯 내 핸드 코칭</b><p>홀카드 2장을 입력하면 핸드 강도·포지션·베팅 규모를 분석합니다.</p></div>';
  const rivals=state.players.filter(p=>p.seat!==state.heroSeat&&!p.folded&&(p.stack>0||p.contributed>0));
- const count=Math.min(3,Math.max(1,rivals.length));
+ const count=Math.max(1,rivals.length);
  const key=[cards.join(','),board.join(','),count,state.hand].join('|');
  if(!window.plcEquity)return '<div class="coach-panel"><b>승률 계산기를 불러오는 중입니다.</b></div>';
  if(!window.__plcEquityCache||window.__plcEquityCache.key!==key)window.__plcEquityCache={key,data:window.plcEquity(cards,board,count)};
@@ -253,12 +253,12 @@ function heroAdvicePanel(){
  const shortAllIn=target>0&&limit<Math.max(current*2,bb);
  if(shortAllIn)target=limit;
  const sized=target>0&&myTurn?'<div class="sizing-tip"><b>💰 검토할 '+(current?'레이즈 총액':'베팅액')+': '+F(target)+'칩'+(shortAllIn?' (스택 한도)':'')+'</b><p>추가 투입 '+F(Math.max(0,target-paid))+'칩 · '+E(why)+'</p></div>':'<p>'+E(why)+'</p>';
- const mix=pre?mixedActionGuide(cards,position,stackBB,unopened,acts.length>0,due,bb,pot,paid,me.stack||0):null;
+ const mix=null; // Do not display fabricated action frequencies as solver strategy.
  const mixHtml=mix&&myTurn?'<div class="mix-panel"><b>프리플랍 혼합 액션 참고 비율</b><div class="mix-rows">'+mix.entries.map(e=>'<div class="mix-row"><span>'+e.name+'</span><div class="mix-track"><i style="width:'+e.p+'%"></i></div><strong>'+e.p+'%</strong></div>').join('')+'</div><p>오픈 예시 '+F(mix.openTotal)+'칩 · 3벳 예시 '+F(mix.raiseTotal)+'칩 · 올인 '+F(mix.pushTotal)+'칩 (총액)</p><p class="coach-note">규칙 기반 모델의 혼합 빈도 예시입니다. 실제 GTO 솔버의 혼합 비율이 아니며 상금 구조·상대 레인지·ICM에 따라 달라집니다.</p></div>':'';
   const icmConfigured=(state.icmPayouts||[]).length>0;
  const icm='<div><b>🏆 ICM / 토너먼트 위험</b><p>'+(icmConfigured?(state.icmComplete?'상금 구조가 입력됐지만 현재 상대별 정확한 ICM 위험 프리미엄과 최적 행동은 아직 계산하지 않았습니다. 특히 커버당하는 올인과 버블 위험에 유의하세요.':'상금 구조는 입력됐으나 전체 남은 선수 스택 확인이 없어 ICM 수치는 계산하지 않습니다.'):'상금 구조와 남은 전체 선수 스택 미입력 · ICM 위험 프리미엄 계산 불가')+'</p><button onclick="configureICM()">ICM 상금 설정</button></div>';
  return '<details class="coach-panel" open><summary>🎯 내 핸드 · 베팅 · ICM 분석</summary>'+
- '<div class="hero-equity"><strong>'+calc.equity+'%</strong><span>무작위 상대 '+count+'명 기준 참고 승률 · '+calc.trials+'회 시뮬레이션</span></div>'+
+ '<div class="hero-equity"><strong>'+calc.equity+'%</strong><span>무작위 상대 '+count+'명 기준 단순 쇼다운 추정 · '+calc.trials+'회 시뮬레이션 (실제 오픈 레인지 미반영)</span></div>'+
  '<div class="coach-meta">포지션 '+E(position)+' · 내 스택 '+stackBB.toFixed(1)+'BB · SPR '+(spr===null?'—':spr.toFixed(2))+' · 현재 팟 '+F(pot)+' · 콜 '+F(due)+' · 팟오즈 '+toCallOdds+'%</div>'+
  mixHtml+
  (myTurn?'<div><b>검토 액션: '+E(advice)+'</b></div>'+sized:'<p class="coach-note"><b>현재 '+E(state.selected)+'번 액션 차례 · 내 자리 '+E(state.heroSeat)+'번.</b> 내 차례가 오면 추천 액션과 금액을 표시합니다.</p>')+

@@ -12,7 +12,7 @@ function initHand(first=false){
  state.paused='';state.boardEntryRequired=false;
  if(!first){const requested=Number(state.nextDealerSeat);state.button=requested&&at.some(p=>p.seat===requested)?requested:seatNext(state.button,at);state.nextDealerSeat=0;}
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
- state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
+ state.handActions=[];state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
  const sb=at.length===2?state.button:seatNext(state.button,at);
  const bb=seatNext(sb,at);
  const post=(seat,amt)=>{const p=get(seat);const paid=Math.min(p.stack,amt);p.stack-=paid;p.roundPaid+=paid;p.contributed+=paid;state.pot+=paid};
@@ -66,6 +66,7 @@ function act(kind){
  if(needed&&(state.cards.board||[]).length<needed){openPicker('board');return}
  const p=get(state.selected);if(!p||p.folded||p.stack<=0)return;mark(p);
  const due=Math.max(0,state.currentBet-p.roundPaid);
+ const street=state.street;
  if(kind==='FOLD'){p.folded=true;p.folds++;p.acted=true;state.history.unshift(p.seat+'번 폴드')}
  else if(kind==='CHECK'){if(due){alert('콜 '+fmt(due)+'칩이 필요합니다.');return}p.acted=true;state.history.unshift(p.seat+'번 체크')}
  else{
@@ -88,6 +89,7 @@ function act(kind){
   }else if(kind==='CALL')p.calls++;
   p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(p.roundPaid)+'칩 (이번 추가 '+fmt(amount)+')');state.amount=0
  }
+ state.handActions??=[];state.handActions.push({seat:p.seat,street,kind,amount:kind==='FOLD'||kind==='CHECK'?0:p.roundPaid,hand:state.hand});
  state.actions=(state.actions||0)+1;
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}

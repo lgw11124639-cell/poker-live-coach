@@ -369,7 +369,7 @@ function ai(){
  const r=p.hole.map(c=>ranks.indexOf(c[0])+2).sort((a,b)=>b-a);
  const pair=r[0]===r[1],suited=p.hole[0][1]===p.hole[1][1],gap=r[0]-r[1];
  const pre=Math.min(1,(pair?.48+r[0]/20+r[1]/40:0)+(!pair?r[0]/21+r[1]/29+(suited?.13:0)+(gap<=2?.06:0):0));
- const strength=G.street==='PREFLOP'?pre:score([...p.hole,...G.board])[0]/8;
+ const strength=G.street==='PREFLOP'?pre:(G.board.length===5?score([...p.hole,...G.board])[0]/8:(p.hole[0][0]===p.hole[1][0]?.22:0)+p.hole.filter(c=>G.board.some(b=>b[0]===c[0])).length*.15);
  const boardRanks=G.board.map(c=>c[0]),hit=pair||p.hole.some(c=>boardRanks.includes(c[0]));
  const flushDraw=G.board.length>=3&&suits.split('').some(s=>[...p.hole,...G.board].filter(c=>c[1]===s).length>=4);
  const strong=G.street==='PREFLOP'?pre>.86:strength>=.25||hit;

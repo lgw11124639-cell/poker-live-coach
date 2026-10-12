@@ -11,6 +11,7 @@ function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
  state.paused='';state.boardEntryRequired=false;state.runoutPending=false;state.allInShowdown=false;
  if(!first){const requested=Number(state.nextDealerSeat);state.button=requested&&at.some(p=>p.seat===requested)?requested:seatNext(state.button,at);state.nextDealerSeat=0;}
+ state.handPositionSeats=at.map(p=>p.seat);state.handPositionButton=state.button;
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
  state.handActions=[];state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
  const sb=at.length===2?state.button:seatNext(state.button,at);

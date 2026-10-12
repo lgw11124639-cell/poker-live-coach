@@ -88,9 +88,9 @@ function act(kind){
   const amount=kind==='CALL'?Math.min(due,p.stack):kind==='ALL-IN'?p.stack:kind==='RAISE'?Math.min(p.stack,Math.max(0,target-p.roundPaid)):0;
   if(kind==='CALL'&&!due){alert('콜 금액이 없습니다. 체크를 누르세요.');return}
   if(kind==='RAISE'){
-   if(target<=state.currentBet){const minimum=state.currentBet>0?state.currentBet*2:state.bb;alert('현재 베팅 '+fmt(state.currentBet)+'칩 · 최소 '+(state.currentBet>0?'레이즈':'베팅')+' 총액 '+fmt(minimum)+'칩입니다.');return}
-   const minTotal=state.currentBet===0?state.bb:state.currentBet*2;
-   if(p.roundPaid+amount<minTotal&&amount<p.stack){alert('최소 레이즈 총액은 '+fmt(minTotal)+'칩입니다. (현재 베팅의 2배)');return}
+   if(target<=state.currentBet){const minimum=state.currentBet>0?state.currentBet+state.lastRaise:state.bb;alert('현재 베팅 '+fmt(state.currentBet)+'칩 · 최소 '+(state.currentBet>0?'레이즈':'베팅')+' 총액 '+fmt(minimum)+'칩입니다.');return}
+   const minTotal=state.currentBet===0?state.bb:state.currentBet+state.lastRaise;
+   if(p.roundPaid+amount<minTotal&&amount<p.stack){alert('최소 레이즈 총액은 '+fmt(minTotal)+'칩입니다. (직전 유효 레이즈 폭 기준)');return}
   }
   if(amount<=0){alert('칩 금액을 선택하세요.');return}
   p.stack-=amount;p.contributed+=amount;p.roundPaid+=amount;state.pot+=amount;
@@ -247,9 +247,9 @@ window.plcEquity=function(heroCards,boardCards,opponents=1){
  if(!Array.isArray(heroCards)||heroCards.length!==2)return null;
  const known=[...heroCards,...boardCards];if(new Set(known).size!==known.length)return null;
  const deck=[];for(const r of deckRanks)for(const suit of deckSuits){const c=r+suit;if(!known.includes(c))deck.push(c)}
- const count=Math.min(3,Math.max(1,opponents));const needed=2*count+5-boardCards.length;
+ const count=Math.min(9,Math.max(1,Math.floor(Number(opponents)||1)));const needed=2*count+5-boardCards.length;
  if(needed>deck.length)return null;
- let score=0,win=0,tie=0;const trials=140;
+ let score=0,win=0,tie=0;const trials=500;
  for(let n=0;n<trials;n++){
   const cards=deck.slice();for(let i=0;i<needed;i++){const j=i+Math.floor(Math.random()*(cards.length-i));const t=cards[j];cards[j]=cards[i];cards[i]=t}
   const board=[...boardCards,...cards.slice(count*2,needed)];

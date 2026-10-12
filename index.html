@@ -127,7 +127,7 @@ function game(){
 const p=getSeat(state.selected),hero=getSeat(state.heroSeat),due=p?Math.max(0,(state.currentBet||0)-(p.roundPaid||0)):0;
 const clockS=Math.max(0,Math.ceil((state.levelEndsAt-Date.now())/1000)),clock=String(Math.floor(clockS/60)).padStart(2,'0')+':'+String(clockS%60).padStart(2,'0');
 let h=header();
-h+='<div class="version-row"><span>POKER LIVE COACH · V57</span><button onclick="forceAppUpdate()">↻ 업데이트 확인</button></div>';
+h+='<div class="version-row"><span>POKER LIVE COACH · V58</span><button onclick="forceAppUpdate()">↻ 업데이트 확인</button></div>';
 h+='<div class="compact-head"><div><b>LEVEL '+state.level+' · '+F(state.sb)+'/'+F(state.bb)+'</b><div class="tiny muted">TABLE '+F(state.table)+' · #'+state.hand+' '+E(state.street)+'</div></div><div class="compact-clock" id="timer-live">'+clock+'</div></div>';
 h+='<div class="compact-stats"><span>팟 <b>'+F(state.pot)+'</b></span><span>내 스택 <b>'+(hero?F(hero.stack):'미지정')+'</b></span><span>선택 좌석 콜 <b>'+F(due)+'</b></span></div>';
 h+=tableHtml();h+='<div class="compact-dealer-controls"><span>⚪ D 딜러: '+F(state.button)+'번'+(state.nextDealerSeat?' · 다음 '+F(state.nextDealerSeat)+'번':'')+'</span><button onclick="chooseDealer()">선택 좌석을 딜러로</button><button onclick="nextLevelManually()">'+(state.pendingLevel?'블라인드 업 예약 취소':'▲ 블라인드 업')+'</button></div>';const boardNeed=state.street==='FLOP'?3:state.street==='TURN'?4:state.street==='RIVER'?5:0;const boardCount=(state.cards?.board||[]).length;if(boardNeed&&boardCount<boardNeed)h+='<button class="board-callout" onclick="plcInputBoard()">🃏 '+(state.street==='FLOP'?'플랍 3장':state.street==='TURN'?'턴 1장': '리버 1장')+' 선택하기 · '+boardCount+'/'+boardNeed+'</button>';
@@ -282,7 +282,7 @@ function selectSeat(n){state.selected=n;render()}function balanceTable(){
  if(typeof window.plcHeroHole==='function')window.plcHeroHole()
 }
 function chooseDealer(){const p=getSeat(state.selected);if(!p||p.stack<=0){alert('칩이 남아 있는 좌석만 딜러로 지정할 수 있습니다.');return}state.nextDealerSeat=state.selected;state.history.unshift(state.selected+'번 딜러 버튼 지정 · 다음 핸드부터 적용');alert(state.selected+'번을 다음 핸드 딜러로 지정했습니다. 현재 핸드의 액션 순서는 유지됩니다.');render()}function setHeroSeat(){if(!getSeat(state.selected))return;state.heroSeat=state.selected;state.history.unshift('내 자리 '+state.heroSeat+'번 지정');if(typeof window.plcResetToUTG==='function')window.plcResetToUTG();render();if(typeof window.plcHeroHole==='function'){try{window.plcHeroHole()}catch(err){alert('카드 선택창 오류: '+err.message)}}else alert('카드 엔진이 로드되지 않았습니다. 새로고침해주세요.')}function addChip(n){state.amount+=n;state.chipPadOpen=true;render()}function clearAmount(){state.amount=0;render()}function toggleChipPad(v){state.chipPadOpen=!!v;render()}function setAmount(n){state.amount=n;render()}function toggleRaiseMenu(){state.raiseMenuOpen=!state.raiseMenuOpen;render()}function quickRaise(mult){const p=getSeat(state.selected);if(!p)return;const base=state.currentBet>0?state.currentBet:state.bb;state.amount=Math.min(p.stack+(p.roundPaid||0),base*mult);state.raiseMenuOpen=false;betAction("RAISE")}function quickAllIn(){state.raiseMenuOpen=false;betAction("ALL-IN")}function quickPotBet(q){const p=getSeat(state.selected);if(!p)return;const unit=Math.min(...DENOMS.filter(c=>!state.wash.includes(c.v)).map(c=>c.v));const raw=Math.max(state.bb,Math.round((state.pot||0)*q/unit)*unit);state.amount=Math.min(p.stack+(p.roundPaid||0),raw);state.raiseMenuOpen=false;betAction("RAISE")}function toggleQueue(k){state[k]=!state[k];render()}function washChip(v){if(!state.wash.includes(v))state.wash.push(v);render()}function advanceStreet(){const a=['PREFLOP','FLOP','TURN','RIVER'];state.street=a[Math.min(3,a.indexOf(state.street)+1)];state.history.unshift('#'+state.hand+' '+state.street+' 시작');render()}function changeBlind(){const b=prompt('새 BB 칩 단위',state.bb);if(b===null)return;const n=Number(b);if(!Number.isFinite(n)||n<=0)return;state.bb=n;state.sb=n/2;render()};render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
-</script><script src="./hand-engine.js?v=57"></script>
+</script><script src="./hand-engine.js?v=58"></script>
 <script>
 /* Independent local-only 9-seat playable tournament V57. */
 (function(){
@@ -292,7 +292,8 @@ const $=()=>document.getElementById('playable-root');
 const fmt=n=>Math.round(n).toLocaleString('ko-KR');
 const card=c=>c?c[0]+({S:'♠',H:'♥',D:'♦',C:'♣'}[c[1]]||''):'🂠';
 const color=c=>c&&/[HD]/.test(c[1])?'#e55570':'#202938';
-const deck=()=>{let a=[];for(let r of ranks)for(let t of suits)a.push(r+t);for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const random=()=>{if(typeof crypto!=='undefined'&&crypto.getRandomValues){let b=new Uint32Array(1);crypto.getRandomValues(b);return b[0]/4294967296}return Math.random()};
+const deck=()=>{let a=[];for(let r of ranks)for(let t of suits)a.push(r+t);for(let i=a.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const seatAfter=(n,arr)=>{for(let k=1;k<=9;k++){let x=(n-1+k)%9+1;if(arr.includes(x))return x}return n};
 const live=()=>G.p.filter(x=>x.stack>0||x.invest>0).map(x=>x.seat);
 const active=()=>G.p.filter(x=>!x.fold&&(!x.out)&& (x.stack>0||x.invest>0));
@@ -303,7 +304,8 @@ const cmp=(a,b)=>{for(let i=0;i<Math.max(a.length,b.length);i++){let d=(a[i]||0)
 const score=cs=>{let best=null;for(let a=0;a<7;a++)for(let b=a+1;b<7;b++){let z=hand5(cs.filter((_,i)=>i!==a&&i!==b));if(!best||cmp(z,best)>0)best=z}return best};
 const put=(p,n)=>{let a=Math.min(p.stack,Math.max(0,n));p.stack-=a;p.paid+=a;p.invest+=a;G.pot+=a;return a};
 const log=t=>{G.log.unshift(t);G.log=G.log.slice(0,30)};
-function start(seat){G={hero:seat,p:Array.from({length:9},(_,i)=>({seat:i+1,stack:30000,out:false})),hand:0,button:9,level:1,sb:100,bb:200,pot:0,board:[],log:[],phase:'between'};nextHand()}
+const profiles=[{name:'타이트',tight:.83,aggr:.38,bluff:.08},{name:'루즈패시브',tight:.30,aggr:.14,bluff:.07},{name:'루즈어그레시브',tight:.24,aggr:.77,bluff:.31},{name:'콜링스테이션',tight:.16,aggr:.08,bluff:.03},{name:'TAG',tight:.68,aggr:.66,bluff:.13},{name:'매니악',tight:.08,aggr:.92,bluff:.48},{name:'니트',tight:.95,aggr:.16,bluff:.02},{name:'밸런스형',tight:.53,aggr:.49,bluff:.15}];
+function start(seat){let mixed=profiles.slice();for(let i=mixed.length-1;i>0;i--){let j=Math.floor(random()*(i+1));[mixed[i],mixed[j]]=[mixed[j],mixed[i]]}let k=0;G={hero:seat,p:Array.from({length:9},(_,i)=>({seat:i+1,stack:30000,out:false,profile:i+1===seat?null:{...mixed[k++]}})),hand:0,button:9,level:1,sb:100,bb:200,pot:0,board:[],log:[],phase:'between'};nextHand()}
 function nextHand(){
  if(!G)return;const survivors=G.p.filter(p=>p.stack>0).map(p=>p.seat);
  if(survivors.length<2){G.phase='finished';save();render();return}
@@ -363,18 +365,27 @@ function action(kind,target){
  advance()
 }
 function ai(){
- let p=pl(G.turn),due=Math.max(0,G.bet-p.paid),r=p.hole.map(c=>ranks.indexOf(c[0])+2).sort((a,b)=>b-a),pair=r[0]===r[1],suited=p.hole[0][1]===p.hole[1][1],premium=pair&&r[0]>=10||r[0]===14&&r[1]>=11,good=pair||r[0]>=12&&r[1]>=10||suited&&r[0]>=11&&r[1]>=9;
- if(G.street==='PREFLOP'){
- if(due>0&&due>p.stack*.28&&!premium){action('fold');return}
- if(due>0&&due>G.bb*5&&!good&&Math.random()<.83){action('fold');return}
- if(!due&&good&&Math.random()<.26&&p.stack>G.bb*6){action('raise',Math.min(p.stack+p.paid,G.bet+G.minRaise+G.bb));return}
- if(due===0){action('check');return}
- if(!good&&Math.random()<.38){action('fold');return}
- action('call');return
+ const p=pl(G.turn),t=p.profile||profiles[7],due=Math.max(0,G.bet-p.paid);
+ const r=p.hole.map(c=>ranks.indexOf(c[0])+2).sort((a,b)=>b-a);
+ const pair=r[0]===r[1],suited=p.hole[0][1]===p.hole[1][1],gap=r[0]-r[1];
+ const pre=Math.min(1,(pair?.48+r[0]/20+r[1]/40:0)+(!pair?r[0]/21+r[1]/29+(suited?.13:0)+(gap<=2?.06:0):0));
+ const strength=G.street==='PREFLOP'?pre:score([...p.hole,...G.board])[0]/8;
+ const boardRanks=G.board.map(c=>c[0]),hit=pair||p.hole.some(c=>boardRanks.includes(c[0]));
+ const flushDraw=G.board.length>=3&&suits.split('').some(s=>[...p.hole,...G.board].filter(c=>c[1]===s).length>=4);
+ const strong=G.street==='PREFLOP'?pre>.86:strength>=.25||hit;
+ const loose=1-t.tight, bluffChance=t.bluff*(G.street==='PREFLOP'?.6:1);
+ const willing=G.street==='PREFLOP'?pre+loose*.24> .57:strong||flushDraw||random()<bluffChance;
+ const minTotal=G.bet?G.bet+G.minRaise:G.bb;
+ const raiseTo=Math.min(p.stack+p.paid,Math.max(minTotal,Math.ceil((G.bet+G.pot*(.22+random()*.38))/G.bb)*G.bb));
+ const canRaise=raiseTo>=minTotal&&raiseTo>G.bet&&p.stack>due+G.bb;
+ if(due){
+  const pressure=due/Math.max(G.bb,G.pot);
+  const foldRate=Math.min(.98,Math.max(0,t.tight*.52+(pressure>.65?.22:0)-(willing?.45:0)-(t.name==='콜링스테이션'?.36:0)));
+  if(!willing&&random()<foldRate){action('fold');return}
+  if(canRaise&&random()<t.aggr*(strong?.36:bluffChance*.35)){action('raise',raiseTo);return}
+  action('call');return
  }
- let made=G.board.some(c=>c[0]===p.hole[0][0]||c[0]===p.hole[1][0])||pair;
- if(due){if(!made&&due>G.pot*.33&&Math.random()<.72){action('fold');return}action('call');return}
- if(made&&Math.random()<.52&&p.stack>G.bb){action('raise',Math.min(p.stack+p.paid,Math.max(G.bb,Math.floor(G.pot*.42/G.bb)*G.bb)));return}
+ if(canRaise&&random()<t.aggr*(strong?.56:bluffChance*.45)){action('raise',raiseTo);return}
  action('check')
 }
 function drive(){
@@ -390,7 +401,7 @@ function render(){
  let root=$();if(!root||!G)return;
  const hero=pl(G.hero),turn=G.phase==='play'&&G.turn===G.hero&&!hero.fold&&hero.stack>0,due=turn?Math.max(0,G.bet-hero.paid):0,maximum=hero.stack+hero.paid,minimum=G.bet+G.minRaise;
  const cbox=(c,hidden)=>'<span style="display:inline-flex;align-items:center;justify-content:center;background:#fff;border-radius:7px;border:1px solid #b5c5d6;width:43px;height:62px;color:'+color(c)+';font-size:20px;font-weight:800">'+(hidden?'🂠':card(c))+'</span>';
- root.innerHTML='<div style="max-width:720px;margin:auto;padding:16px;color:#edf5ff;background:#101b2d;border-radius:18px"><div style="display:flex;justify-content:space-between;align-items:center"><b>🎲 9인 새틀라이트 · 실전 테스트</b><button onclick="plcTestHome()">닫기</button></div><p>HAND #'+G.hand+' · LEVEL '+G.level+' · '+fmt(G.sb)+'/'+fmt(G.bb)+' · BTN '+G.button+'번</p><div style="background:#172b3b;border:1px solid #4c9e9b;border-radius:18px;padding:14px"><div style="text-align:center">팟 <b style="font-size:26px">'+fmt(G.pot)+'</b>칩 · '+G.street+'</div><div style="display:flex;justify-content:center;gap:5px;margin:14px 0;flex-wrap:wrap">'+(G.board.length?G.board.map(c=>cbox(c,false)).join(''):'보드 대기')+'</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+G.p.map(p=>'<div style="padding:8px 4px;text-align:center;border:1px solid '+(p.seat===G.hero?'#77dfca':'#455b73')+';border-radius:9px;opacity:'+(p.fold||p.out?.5:1)+';background:'+(G.turn===p.seat&&G.phase==='play'?'#304f65':'#22344a')+'"><b>'+p.seat+'번 '+(p.seat===G.hero?'나':'AI')+'</b> '+(p.seat===G.button?'D':'')+'<div>'+fmt(p.stack)+'칩</div><small>'+(p.out?'탈락':p.fold?'폴드':p.paid?'투입 '+fmt(p.paid):'참여')+'</small><div>'+(p.seat===G.hero||G.reveal&&!p.fold?p.hole.map(c=>cbox(c,false)).join(''):p.fold?'—':p.hole.map(c=>cbox(c,true)).join(''))+'</div></div>').join('')+'</div></div><div style="padding:14px 0"><b>내 자리 '+G.hero+'번 · '+fmt(hero.stack)+'칩</b><div style="margin-top:6px">'+(G.log.slice(0,5).map(x=>'<div style="font-size:13px;color:#afc5d7;padding:3px">'+x+'</div>').join(''))+'</div></div>'+
+ root.innerHTML='<div style="max-width:720px;margin:auto;padding:16px;color:#edf5ff;background:#101b2d;border-radius:18px"><div style="display:flex;justify-content:space-between;align-items:center"><b>🎲 9인 새틀라이트 · 실전 테스트</b><button onclick="plcTestHome()">닫기</button></div><p>HAND #'+G.hand+' · LEVEL '+G.level+' · '+fmt(G.sb)+'/'+fmt(G.bb)+' · BTN '+G.button+'번</p><div style="background:#172b3b;border:1px solid #4c9e9b;border-radius:18px;padding:14px"><div style="text-align:center">팟 <b style="font-size:26px">'+fmt(G.pot)+'</b>칩 · '+G.street+'</div><div style="display:flex;justify-content:center;gap:5px;margin:14px 0;flex-wrap:wrap">'+(G.board.length?G.board.map(c=>cbox(c,false)).join(''):'보드 대기')+'</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">'+G.p.map(p=>'<div style="padding:8px 4px;text-align:center;border:1px solid '+(p.seat===G.hero?'#77dfca':'#455b73')+';border-radius:9px;opacity:'+(p.fold||p.out?.5:1)+';background:'+(G.turn===p.seat&&G.phase==='play'?'#304f65':'#22344a')+'"><b>'+p.seat+'번 '+(p.seat===G.hero?'나':(p.profile?.name||'AI'))+'</b> '+(p.seat===G.button?'D':'')+'<div>'+fmt(p.stack)+'칩</div><small>'+(p.out?'탈락':p.fold?'폴드':p.paid?'투입 '+fmt(p.paid):'참여')+'</small><div>'+(p.seat===G.hero||G.reveal&&!p.fold?p.hole.map(c=>cbox(c,false)).join(''):p.fold?'—':p.hole.map(c=>cbox(c,true)).join(''))+'</div></div>').join('')+'</div></div><div style="padding:14px 0"><b>내 자리 '+G.hero+'번 · '+fmt(hero.stack)+'칩</b><div style="margin-top:6px">'+(G.log.slice(0,5).map(x=>'<div style="font-size:13px;color:#afc5d7;padding:3px">'+x+'</div>').join(''))+'</div></div>'+
  (turn?'<div style="background:#263b53;padding:12px;border-radius:12px"><b>내 차례 · 콜 '+fmt(due)+'칩</b><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"><button onclick="plcTestAct(\'fold\')">폴드</button><button onclick="plcTestAct(\''+(due?'call':'check')+'\')">'+(due?'콜 '+fmt(Math.min(due,hero.stack)):'체크')+'</button><button onclick="plcTestAct(\'allin\')">올인</button></div><div style="margin-top:10px">레이즈 총액 <input id="plc-test-raise" type="number" min="'+minimum+'" max="'+maximum+'" value="'+Math.min(maximum,Math.max(minimum,G.bb*3))+'" style="width:130px;color:#111;background:white;padding:9px;border-radius:8px"> <button onclick="plcTestRaise()">베팅 / 레이즈</button></div><small>최소 총 '+fmt(G.bet===0?G.bb:minimum)+'칩 · 최대 '+fmt(maximum)+'칩</small></div>':G.phase==='between'?'<button onclick="plcTestNext()" style="width:100%;padding:14px;background:#54bca6;color:#0b1926;border-radius:10px;font-weight:800">다음 핸드 ▶</button>':G.phase==='finished'?'<b>토너먼트 종료</b>':'<p>AI 플레이 중...</p>')+
  '<div style="display:flex;gap:8px;margin-top:12px"><button onclick="plcTestReset()">새 테스트 시작</button><button onclick="plcTestHome()">기존 코치로 돌아가기</button></div><small>오프라인 연습용 단순 AI · 실제 GTO/ICM 솔버가 아닙니다.</small></div>';
 }

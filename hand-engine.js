@@ -57,10 +57,12 @@ function streetNext(){
  state.players.forEach(p=>{p.roundPaid=0;p.acted=false});
  const act=eligible().filter(p=>p.stack>0);
  state.selected=act.length?seatNext(state.button,act):state.button;
- state.history.unshift(state.street+' 시작')
+ state.history.unshift(state.street+' 시작');render();if(state.street!=='PREFLOP')openPicker('board')
 }
 function act(kind){
  if(state.paused)return;
+ const needed=state.street==='FLOP'?3:state.street==='TURN'?4:state.street==='RIVER'?5:0;
+ if(needed&&(state.cards.board||[]).length<needed){openPicker('board');return}
  const p=get(state.selected);if(!p||p.folded||p.stack<=0)return;mark(p);
  const due=Math.max(0,state.currentBet-p.roundPaid);
  if(kind==='FOLD'){p.folded=true;p.folds++;p.acted=true;state.history.unshift(p.seat+'번 폴드')}
@@ -110,22 +112,24 @@ const displayCard=c=>c?c[0]+({S:'♠',H:'♥',D:'♦',C:'♣'}[c[1]]||''):'';
 function openPicker(type){const p=get(state.selected);if(type==='hole'&&!p)return;picker={type,seat:state.selected,selected:[...(type==='board'?(state.cards.board||[]):(p.cards||[]))]};showPicker()}
 function showPicker(){
  if(!picker)return;document.getElementById('plc-card-picker')?.remove();
- const max=picker.type==='board'?5:2;
+ const max=picker.type==='board'?(state.street==='FLOP'?3:state.street==='TURN'?4:5):2;
  const used=new Set(picker.type==='board'?state.players.flatMap(p=>p.cards||[]):[...(state.cards.board||[]),...state.players.filter(p=>p.seat!==picker.seat).flatMap(p=>p.cards||[])]);
  const d=document.createElement('div');d.id='plc-card-picker';d.style.cssText='position:fixed;inset:0;z-index:9999;background:#080d18ee;display:flex;align-items:center;justify-content:center;padding:12px';
  const container=document.createElement('div');container.style.cssText='background:#152137;color:#fff;border:1px solid #3e5270;border-radius:18px;padding:14px;width:min(100%,560px);max-height:94dvh;overflow:auto';
- const title=document.createElement('h3');title.textContent=(picker.type==='board'?'커뮤니티 카드':'좌석 '+picker.seat+' 홀 카드')+' · '+picker.selected.length+'/'+max;container.append(title);
+ const title=document.createElement('h3');title.textContent=(picker.type==='board'?(state.street==='FLOP'?'플랍 3장':state.street==='TURN'?'턴 1장 추가':state.street==='RIVER'?'리버 1장 추가':'커뮤니티 카드'):'좌석 '+picker.seat+' 홀 카드')+' · '+picker.selected.length+'/'+max;container.append(title);
  const chosen=document.createElement('div');chosen.style.cssText='min-height:40px;margin-bottom:12px;color:#eaca81';chosen.textContent=picker.selected.map(displayCard).join('  ')||'아래에서 카드를 선택하세요';container.append(chosen);
  for(const suit of deckSuits){const row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:3px;margin-bottom:9px';
  for(const rank of deckRanks){const card=rank+suit;const b=document.createElement('button');b.textContent=rank+({S:'♠',H:'♥',D:'♦',C:'♣'}[suit]);b.style.cssText='padding:8px 0;border-radius:6px;font-size:12px;min-width:0;background:'+(['H','D'].includes(suit)?'#fff4f4':'#fff')+';color:'+(['H','D'].includes(suit)?'#b01835':'#1c2234');const selected=picker.selected.includes(card);if(selected)b.style.outline='3px solid #e1b965';b.disabled=used.has(card)||(!selected&&picker.selected.length>=max);b.onclick=()=>{picker.selected=selected?picker.selected.filter(c=>c!==card):[...picker.selected,card];showPicker()};row.append(b)}container.append(row)}
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];picker=null;d.remove();if(state.street==='PREFLOP'&&state.actions===0){resetActionToFirst()}render()};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render()};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
 function inputBoard(){openPicker('board')}
 function inputHole(){openPicker('hole')}
+function heroHole(){if(!state.heroSeat)return;state.selected=state.heroSeat;render();openPicker('hole')}
+window.plcHeroHole=heroHole;
 function showdown(){
 const players=eligible();if(players.length===1){finish(players[0].seat);return}
 if((state.cards.board||[]).length!==5||players.some(p=>(p.cards||[]).length!==2)){alert('쇼다운 참여자 카드 2장씩과 보드 5장을 모두 입력해야 자동 판정할 수 있습니다.');return}
@@ -172,5 +176,5 @@ function manualNextHand(){
  if(!confirm('팟이 0칩입니다. 새 핸드를 시작할까요?'))return;
  state.paused='';applyPending();state.hand++;prepareHand();render()
 }
-window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
+window.plcOpenBoard=inputBoard;window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
 })();

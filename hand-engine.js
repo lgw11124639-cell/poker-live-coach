@@ -68,10 +68,11 @@ function act(kind){
  if(kind==='FOLD'){p.folded=true;p.folds++;p.acted=true;state.history.unshift(p.seat+'번 폴드')}
  else if(kind==='CHECK'){if(due){alert('콜 '+fmt(due)+'칩이 필요합니다.');return}p.acted=true;state.history.unshift(p.seat+'번 체크')}
  else{
-  const amount=kind==='CALL'?Math.min(due,p.stack):kind==='ALL-IN'?p.stack:Math.min(p.stack,Number(state.amount)||0);
+  const target=Number(state.amount)||0;
+  const amount=kind==='CALL'?Math.min(due,p.stack):kind==='ALL-IN'?p.stack:kind==='RAISE'?Math.min(p.stack,Math.max(0,target-p.roundPaid)):0;
   if(kind==='CALL'&&!due){alert('콜 금액이 없습니다. 체크를 누르세요.');return}
   if(kind==='RAISE'){
-   if(amount<=due){alert('콜 금액 '+fmt(due)+'칩보다 큰 레이즈 금액을 선택하세요.');return}
+   if(target<=state.currentBet){alert('현재 베팅 '+fmt(state.currentBet)+'칩보다 높은 총 베팅액을 선택하세요.');return}
    const minRaise=state.currentBet===0?state.bb:state.lastRaise;
    const raiseBy=p.roundPaid+amount-state.currentBet;
    if(raiseBy<minRaise&&amount<p.stack){alert('최소 추가 레이즈 '+fmt(minRaise)+'칩이 필요합니다.');return}
@@ -84,7 +85,7 @@ function act(kind){
    if(full){state.lastRaise=jump;state.players.filter(q=>q.seat!==p.seat&&!q.folded&&q.stack>0).forEach(q=>q.acted=false)}
    p.raises++
   }else if(kind==='CALL')p.calls++;
-  p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(amount)+'칩');state.amount=0
+  p.acted=true;state.history.unshift(p.seat+'번 '+kind+' '+fmt(p.roundPaid)+'칩 (이번 추가 '+fmt(amount)+')');state.amount=0
  }
  state.actions=(state.actions||0)+1;
  const remaining=eligible();

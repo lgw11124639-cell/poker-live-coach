@@ -10,7 +10,7 @@ function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
 function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
  if(!first)state.button=seatNext(state.button,at);
- state.players.forEach(p=>{p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
+ state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
  state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
  const sb=at.length===2?state.button:seatNext(state.button,at);
  const bb=seatNext(sb,at);
@@ -50,7 +50,7 @@ function streetNext(){
  if(state.paused==='showdown'){alert('쇼다운 대기 중입니다.');return}
  const streets=['PREFLOP','FLOP','TURN','RIVER'];
  if(state.street==='RIVER'||eligible().filter(p=>p.stack>0).length<=1){
-   state.paused='showdown';state.history.unshift('쇼다운 · 카드 입력 또는 승자 확인 필요');render();return
+   state.paused='showdown';state.history.unshift('쇼다운 · 카드 공개 또는 먹 선택');render();showShowdownEntry();return
  }
  state.street=streets[streets.indexOf(state.street)+1];
  state.currentBet=0;state.actions=0;state.lastRaise=state.bb;
@@ -124,21 +124,48 @@ function showPicker(){
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render()};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.paused==='showdown')showShowdownEntry()};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
 function inputBoard(){openPicker('board')}window.plcInputBoard=inputBoard;
 function inputHole(){openPicker('hole')}
 function heroHole(){if(!state.heroSeat)return;state.selected=state.heroSeat;render();openPicker('hole')}
 window.plcHeroHole=heroHole;
+function showShowdownEntry(){
+ document.getElementById('plc-showdown-entry')?.remove();
+ if(state.paused!=='showdown')return;
+ const d=document.createElement('div');d.id='plc-showdown-entry';
+ d.style.cssText='position:fixed;inset:0;z-index:9000;background:#07101bee;display:flex;align-items:center;justify-content:center;padding:12px';
+ const panel=document.createElement('div');panel.style.cssText='width:min(100%,520px);max-height:90dvh;overflow:auto;border-radius:18px;padding:16px;background:#152137;color:#fff';
+ const title=document.createElement('h2');title.textContent='🃏 쇼다운 · 카드 공개 / 먹';panel.append(title);
+ const info=document.createElement('p');info.textContent='카드를 보여준 플레이어는 카드 입력, 패배하여 공개하지 않은 플레이어는 먹(Muck). 승자 확인 후 정산하세요.';info.style.cssText='font-size:13px;color:#c4cedb';panel.append(info);
+ for(const p of eligible()){
+  const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px solid #36465b;padding:11px 0';
+  const label=document.createElement('span');label.textContent=p.seat+'번 '+(p.seat===state.heroSeat?'ME ':'')+(p.mucked?'먹(Muck)':(p.cards||[]).length===2?p.cards.map(displayCard).join(' '):'미공개');
+  label.style.cssText='font-weight:700;font-size:13px';row.append(label);
+  const reveal=document.createElement('button');reveal.textContent='카드 공개';reveal.style.cssText='padding:9px;font-size:12px;background:#d9b971;color:#171a22';
+  reveal.onclick=()=>{p.mucked=false;state.selected=p.seat;d.remove();openPicker('hole')};
+  const muck=document.createElement('button');muck.textContent=p.mucked?'먹 취소':'먹(Muck)';muck.style.cssText='padding:9px;font-size:12px;background:#38475d;color:white';
+  muck.onclick=()=>{if(!p.mucked&&eligible().filter(x=>!x.mucked).length===1){alert('마지막 승리 가능 플레이어는 먹 처리할 수 없습니다.');return}p.mucked=!p.mucked;render();showShowdownEntry()};
+  row.append(reveal,muck);panel.append(row)
+ }
+ const settle=document.createElement('button');settle.textContent='✓ 쇼다운 정산 → 다음 핸드';
+ settle.style.cssText='width:100%;padding:15px;margin-top:12px;background:#d9b971;color:#15161c;font-weight:900';
+ settle.onclick=()=>{const old=state.hand;showdown();if(state.hand!==old||state.paused!=='showdown')d.remove()};
+ panel.append(settle);
+ const later=document.createElement('button');later.textContent='나중에 입력';later.style.cssText='width:100%;padding:10px;margin-top:7px';later.onclick=()=>d.remove();panel.append(later);
+ d.append(panel);document.body.append(d)
+}
+window.plcShowdownEntry=showShowdownEntry;
 function showdown(){
-const players=eligible();if(players.length===1){finish(players[0].seat);return}
-if((state.cards.board||[]).length!==5||players.some(p=>(p.cards||[]).length!==2)){alert('쇼다운 참여자 카드 2장씩과 보드 5장을 모두 입력해야 자동 판정할 수 있습니다.');return}
+const players=eligible().filter(p=>!p.mucked);
+if(!players.length){alert('승리할 플레이어가 없습니다. 먹 처리 상태를 확인하세요.');return}
+if((state.cards.board||[]).length!==5||(players.length>1&&players.some(p=>(p.cards||[]).length!==2))){alert('쇼다운 참여자의 공개 카드 2장과 보드 5장이 필요합니다. 먹한 플레이어 카드는 필요하지 않습니다.');return}
 const all=[...state.cards.board,...players.flatMap(p=>p.cards)];if(new Set(all).size!==all.length){alert('중복된 카드가 있습니다. 다시 확인하세요.');return}
 const levels=[...new Set(state.players.map(p=>p.contributed||0).filter(x=>x>0))].sort((a,b)=>a-b);let prev=0;const award={};
 for(const limit of levels){const contributors=state.players.filter(p=>(p.contributed||0)>=limit),pool=(limit-prev)*contributors.length;prev=limit;
-const cand=contributors.filter(p=>!p.folded);if(!cand.length){alert('팟 정산 실패: 유효한 승자가 없습니다.');return}
-let best=null,winners=[];for(const p of cand){const rank=handScore([...p.cards,...state.cards.board]);if(!best||compare(rank,best)>0){best=rank;winners=[p]}else if(compare(rank,best)===0)winners.push(p)}
+const cand=contributors.filter(p=>!p.folded&&!p.mucked);if(!cand.length){alert('팟 정산 실패: 유효한 승자가 없습니다.');return}
+let best=null,winners=[];for(const p of cand){const rank=cand.length===1?[0]:handScore([...p.cards,...state.cards.board]);if(!best||compare(rank,best)>0){best=rank;winners=[p]}else if(compare(rank,best)===0)winners.push(p)}
 const slice=Math.floor(pool/winners.length);let extra=pool%winners.length;for(const p of winners.sort((a,b)=>a.seat-b.seat)){award[p.seat]=(award[p.seat]||0)+slice+(extra-->0?1:0)}
 }
 if(Object.values(award).reduce((a,b)=>a+b,0)!==state.pot){alert('팟 금액 검증 실패. 핸드 정산을 중단합니다.');return}
@@ -148,7 +175,7 @@ state.games.unshift({at:new Date().toLocaleString('ko-KR'),hand:state.hand,winne
 state.games=state.games.slice(0,100);state.pot=0;
 if(state.gameType==='새틀라이트'&&[11,19,25].includes(state.pendingLevel)){state.paused='break';state.washQueued=true;state.washTarget=state.pendingLevel===11?[100,500]:state.pendingLevel===19?[1000]:[5000];if(state.pendingLevel===11)state.registrationOpen=false}
 else if(state.breakQueued){state.paused='break';state.breakQueued=false}
-else{applyPending();state.hand++;prepareHand();return}
+else{applyPending();state.hand++;prepareHand();if(!state.paused&&state.heroSeat&&get(state.heroSeat)?.stack>0)heroHole();return}
 render()
 }
 const baseGame=game;

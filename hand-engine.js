@@ -57,7 +57,7 @@ function streetNext(){
  state.players.forEach(p=>{p.roundPaid=0;p.acted=false});
  const act=eligible().filter(p=>p.stack>0);
  state.selected=act.length?seatNext(state.button,act):state.button;
- state.history.unshift(state.street+' 시작');render();if(state.street!=='PREFLOP')openPicker('board')
+ state.history.unshift(state.street+' 시작');state.boardEntryRequired=true;render();if(state.street!=='PREFLOP'){try{openPicker('board')}catch(err){alert('보드 선택창 오류: '+err.message)}}
 }
 function act(kind){
  if(state.paused)return;
@@ -124,10 +124,10 @@ function showPicker(){
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render()};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render()};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
-function inputBoard(){openPicker('board')}
+function inputBoard(){openPicker('board')}window.plcInputBoard=inputBoard;
 function inputHole(){openPicker('hole')}
 function heroHole(){if(!state.heroSeat)return;state.selected=state.heroSeat;render();openPicker('hole')}
 window.plcHeroHole=heroHole;

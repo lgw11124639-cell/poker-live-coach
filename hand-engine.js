@@ -141,7 +141,7 @@ function showPicker(){
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.runoutCardEntry){continueAllInRunout();return}if(type==='hole'&&state.paused==='showdown')showShowdownEntry();if(type==='board'&&state.runoutPending){if(state.street==='RIVER'){state.runoutPending=false;state.paused='showdown';render();showShowdownEntry()}else{state.runoutPending=true;streetNext()}}};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.runoutCardEntry){continueAllInRunout();return}if(type==='hole'&&state.paused==='showdown')showShowdownEntry();if(type==='board'&&(state.runoutPending||eligible().length>=2&&eligible().every(p=>p.stack<=0))){state.runoutPending=true;state.allInShowdown=true;if(state.street==='RIVER'){state.runoutPending=false;state.paused='showdown';render();showShowdownEntry()}else streetNext()}};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
 function inputBoard(){openPicker('board')}window.plcInputBoard=inputBoard;
@@ -233,12 +233,12 @@ function manualNextHand(){
  if(!confirm('팟이 0칩입니다. 새 핸드를 시작할까요?'))return;
  state.paused='';applyPending();state.hand++;prepareHand();render()
 }
-if(state.paused==='showdown'&&(state.cards?.board||[]).length<5&&state.players?.length){state.paused='';state.runoutPending=true;state.allInShowdown=eligible().some(p=>p.stack===0);if(state.street!=='RIVER')streetNext();else{render();openPicker('board')}}
+if(state.screen==='game'&&(state.cards?.board||[]).length<5&&eligible().length>=2&&eligible().every(p=>p.stack<=0)){state.paused='';state.runoutPending=true;state.allInShowdown=true;state.runoutCardEntry=eligible().some(p=>(p.cards||[]).length!==2);if(state.runoutCardEntry)continueAllInRunout();else if(state.street==='RIVER'){render();openPicker('board')}else streetNext()}
 function resumeAllInRunout(){
  const active=eligible();
  if(active.length<2){alert('쇼다운 참가자가 2명 이상이어야 합니다.');return}
  if((state.cards?.board||[]).length>=5){state.paused='showdown';showShowdownEntry();return}
- state.paused='';state.runoutPending=true;state.allInShowdown=active.some(p=>p.stack===0);state.runoutCardEntry=true;if(continueAllInRunout())return;
+ state.paused='';state.runoutPending=true;state.allInShowdown=active.some(p=>p.stack===0);state.runoutCardEntry=active.some(p=>(p.cards||[]).length!==2);if(state.runoutCardEntry&&continueAllInRunout())return;
  if(state.street==='PREFLOP'||state.street==='FLOP'||state.street==='TURN'){streetNext()}
  else{state.street='RIVER';render();openPicker('board')}
 }

@@ -9,7 +9,7 @@ const isAll=p=>p.stack<=0;
 function mark(p){p.contributed??=0;p.roundPaid??=0;p.acted??=false;p.cards??=[]}
 function initHand(first=false){
  const at=state.players.filter(p=>p.stack>0);if(at.length<2){state.paused='인원 부족';render();return}
- state.paused='';state.boardEntryRequired=false;
+ state.paused='';state.boardEntryRequired=false;state.runoutPending=false;
  if(!first){const requested=Number(state.nextDealerSeat);state.button=requested&&at.some(p=>p.seat===requested)?requested:seatNext(state.button,at);state.nextDealerSeat=0;}
  state.players.forEach(p=>{p.mucked=false;p.folded=p.stack<=0;p.contributed=0;p.roundPaid=0;p.acted=false;p.cards=[]});
  state.handActions=[];state.pot=0;state.street='PREFLOP';state.cards={hero:[],board:[]};state.amount=0;
@@ -50,7 +50,7 @@ function streetDone(){
 function streetNext(){
  if(state.paused==='showdown'){alert('쇼다운 대기 중입니다.');return}
  const streets=['PREFLOP','FLOP','TURN','RIVER'];
- if(state.street==='RIVER'||eligible().filter(p=>p.stack>0).length<=1){
+ if(state.street==='RIVER'){
    state.paused='showdown';state.history.unshift('쇼다운 · 카드 공개 또는 먹 선택');render();showShowdownEntry();return
  }
  state.street=streets[streets.indexOf(state.street)+1];
@@ -93,7 +93,7 @@ function act(kind){
  state.actions=(state.actions||0)+1;
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}
- if(streetDone())streetNext();
+ if(streetDone()||eligible().filter(q=>q.stack>0).length<=1){if(state.street!=='RIVER'&&eligible().filter(q=>q.stack>0).length<=1)state.runoutPending=true;streetNext()}
  else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else state.paused='showdown'}
  render()
 }
@@ -127,7 +127,7 @@ function showPicker(){
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;margin-top:12px';
  const cancel=document.createElement('button');cancel.textContent='취소';cancel.style.flex='1';cancel.onclick=()=>{picker=null;d.remove()};
  const clear=document.createElement('button');clear.textContent='초기화';clear.style.flex='1';clear.onclick=()=>{picker.selected=[];showPicker()};
- const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.paused==='showdown')showShowdownEntry()};
+ const save=document.createElement('button');save.textContent='저장';save.style.cssText='flex:1;background:#d9b971;color:#15151a';save.disabled=picker.selected.length!==max;save.onclick=()=>{if(picker.type==='board')state.cards.board=[...picker.selected];else get(picker.seat).cards=[...picker.selected];const type=picker.type;if(type==='board')state.boardEntryRequired=false;picker=null;d.remove();if(type==='hole'&&state.street==='PREFLOP'&&state.actions===0)resetActionToFirst();render();if(type==='hole'&&state.paused==='showdown')showShowdownEntry();if(type==='board'&&state.runoutPending){state.runoutPending=false;if(state.street==='RIVER'){state.paused='showdown';render();showShowdownEntry()}else streetNext()}};
  actions.append(cancel,clear,save);container.append(actions);d.append(container);document.body.append(d)
 }
 function inputBoard(){openPicker('board')}window.plcInputBoard=inputBoard;

@@ -244,6 +244,7 @@ function resumeAllInRunout(){
  else{state.street='RIVER';render();openPicker('board')}
 }
 window.plcResumeRunout=resumeAllInRunout;
+if(state.paused==='wash'&&state.players.filter(p=>p.stack>0).length<=1&&state.players.length>1){state.paused='tournament-finished';state.washQueued=false;state.breakQueued=false;state.history.unshift('기존 워싱 정지 상태를 종료로 복구');render()}
 repairStaleShowdown();
 window.plcOpenBoard=inputBoard;window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
 })();

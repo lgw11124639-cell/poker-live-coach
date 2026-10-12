@@ -222,6 +222,15 @@ function manualNextHand(){
  state.paused='';applyPending();state.hand++;prepareHand();render()
 }
 if(state.paused==='showdown'&&(state.cards?.board||[]).length<5&&state.players?.length){state.paused='';state.runoutPending=true;state.allInShowdown=eligible().some(p=>p.stack===0);if(state.street!=='RIVER')streetNext();else{render();openPicker('board')}}
+function resumeAllInRunout(){
+ const active=eligible();
+ if(active.length<2){alert('쇼다운 참가자가 2명 이상이어야 합니다.');return}
+ if((state.cards?.board||[]).length>=5){state.paused='showdown';showShowdownEntry();return}
+ state.paused='';state.runoutPending=true;state.allInShowdown=active.some(p=>p.stack===0);
+ if(state.street==='PREFLOP'||state.street==='FLOP'||state.street==='TURN'){streetNext()}
+ else{state.street='RIVER';render();openPicker('board')}
+}
+window.plcResumeRunout=resumeAllInRunout;
 repairStaleShowdown();
 window.plcOpenBoard=inputBoard;window.plcInputHole=inputHole;window.plcManualNextHand=manualNextHand;window.plcInputBoard=inputBoard;window.plcShowdown=showdown;window.plcNextStreet=()=>{streetNext();render()};
 })();

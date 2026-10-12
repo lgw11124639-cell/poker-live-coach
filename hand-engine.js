@@ -94,8 +94,8 @@ function act(kind){
  state.actions=(state.actions||0)+1;
  const remaining=eligible();
  if(remaining.length===1){finish(remaining[0].seat);return}
- const able=eligible().filter(q=>q.stack>0);const runoutReady=eligible().length>1&&able.length<=1&&able.every(q=>q.roundPaid>=state.currentBet);
- if(streetDone()||runoutReady){if(state.street!=='RIVER'&&runoutReady){state.runoutPending=true;state.allInShowdown=true}streetNext()}
+ const able=eligible().filter(q=>q.stack>0);const runoutReady=eligible().length>1&&able.length===0 || eligible().length>1&&able.length===1&&able.every(q=>q.roundPaid>=state.currentBet&&q.acted);
+ if(streetDone()||runoutReady){if(runoutReady){state.runoutPending=true;state.allInShowdown=true}streetNext()}
  else{const nxt=nextActor(state.selected);if(nxt)state.selected=nxt;else if(eligible().length>1){state.runoutPending=true;state.allInShowdown=true;streetNext()}}
  render()
 }

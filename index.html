@@ -150,7 +150,7 @@ function plcLiteEval(cards){
  if(trips.length&&(pairs.some(x=>x[0]!==trips[0][0])))return encode([6,trips[0][0],pairs.find(x=>x[0]!==trips[0][0])[0],0,0,0]);
  for(const k of Object.keys(suits))if(suits[k].length>=5)return encode([5,...suits[k].sort((a,b)=>b-a).slice(0,5)]);
  const st=straight(groups.map(x=>x[0]));if(st)return encode([4,st,0,0,0,0]);
- if(trips.length)return encode([3,trips[0][0],...groups.filter(x=>x[0]!==trips[0][0]).map(x=>x[0]).slice(0,2),0]);
+ if(trips.length)return encode([3,trips[0][0],...groups.filter(x=>x[0]!==trips[0][0]).map(x=>x[0]).slice(0,2),0,0]);
  if(pairs.length>=2)return encode([2,pairs[0][0],pairs[1][0],groups.find(x=>x[0]!==pairs[0][0]&&x[0]!==pairs[1][0])[0],0,0]);
  if(pairs.length)return encode([1,pairs[0][0],...groups.filter(x=>x[0]!==pairs[0][0]).map(x=>x[0]).slice(0,3),0]);
  return encode([0,...groups.map(x=>x[0]).slice(0,5)]);

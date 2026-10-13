@@ -181,7 +181,52 @@ function aiNextHand(){if(db.mode!=='ai'||db.hand)return;const active=S().filter(
 const aiOldAct=act;
 act=function(i,type,amount){if(db.mode==='ai'&&i!==db.selected)return;const h=db.hand;aiOldAct(i,type,amount);if(db.mode==='ai'&&h&&db.hand===h&&S().filter(j=>!h.players[j].fold).length===1)aiFinish()};
 const aiOldRender=render;let aiPending=false;
-render=function(){if(db.mode==='ai')aiSanitizeHand(db.hand);if(db.mode==='ai'&&db.hand&&db.page==='live'&&db.hand.players[db.settings.hero]?.fold){const h=db.hand;const remaining=S().filter(i=>!h.players[i].fold);if(remaining.length===1){aiFinish();return}if(h.players[db.selected]?.fold||h.players[db.selected]?.allin){let n=db.selected;for(let k=0;k<db.settings.count;k++){n=next(n);if(!h.players[n].fold&&!h.players[n].allin){db.selected=n;break}}}}aiOldRender();if(db.mode==='ai'&&db.hand&&db.page==='live'&&db.hand.street===3&&bettingClosed(db.hand)){const endedHand=db.hand;setTimeout(()=>{if(db.mode==='ai'&&db.hand===endedHand&&db.page==='live')openShowdown()},0);return}if(db.mode!=='ai'||!db.hand||db.page!=='live'||db.selected===db.settings.hero||aiPending)return;aiPending=true;const h=db.hand;setTimeout(()=>{aiPending=false;if(db.mode!=='ai'||db.hand!==h||db.page!=='live')return;const i=db.selected,p=h.players[i];if(!p||p.fold||p.allin)return;const need=Math.max(0,h.target-p.paid),stack=db.game.stacks[i],cards=aiHoles[i]||[],pot=h.pot,bb=blinds()[1];if(cards.length!==2)return;const rv=c=>14-ranks.indexOf(c[0]),a=rv(cards[0]),b=rv(cards[1]),hi=Math.max(a,b),lo=Math.min(a,b),pair=a===b,suited=cards[0][1]===cards[1][1],gap=hi-lo;let strength=pair?Math.min(.97,.49+hi*.032):Math.min(.9,.12+hi*.026+lo*.014+(suited?.09:0)+(gap===1?.055:gap===2?.025:0));if(h.board.length>=3){const all=[...cards,...h.board],sc=handScore(all);if(sc){const category=sc[0];strength=category>=5?.98:category===4?.91:category===3?.84:category===2?.75:category===1?.51:.19;const boardRanks=h.board.map(rv),top=Math.max(...boardRanks);if(category===1&&hi>=top)strength+=.10;if(category===0&&hi===14)strength+=.07;const sameSuit=all.filter(c=>c[1]===cards[0][1]).length;if(suited&&sameSuit===4&&h.board.length<5)strength+=.18;const uniq=[...new Set(all.map(rv))];if(h.board.length<5&&[...Array(11)].some((_,k)=>[k+1,k+2,k+3,k+4,k+5].filter(v=>uniq.includes(v===1?14:v)).length>=4))strength+=.10;strength=Math.min(.99,strength)}}const odds=need/(pot+need||1),pressure=need/(stack+need||1),roll=Math.random(),raiseMin=Math.max(h.target*2,h.target+bb*2),raiseTotal=Math.min(p.paid+stack,Math.max(raiseMin,Math.round((h.target+pot*.55)/bb)*bb));if(need>0&&(strength<odds+.10||pressure>.35&&strength<.75||need>bb*7&&strength<.58)){act(i,'폴드',0)}else if(strength>(h.street===0?.81:.77)&&stack>need+bb*3&&roll<.52&&raiseTotal>h.target){act(i,'레이즈',raiseTotal)}else if(need===0&&strength>.7&&stack>bb*3&&roll<.48){act(i,'베팅',Math.min(p.paid+stack,Math.max(bb,Math.round(pot*.5/bb)*bb)))}else act(i,need?'콜':'체크',0)},450)};
+render=function(){if(db.mode==='ai')aiSanitizeHand(db.hand);if(db.mode==='ai'&&db.hand&&db.page==='live'&&db.hand.players[db.settings.hero]?.fold){const h=db.hand;const remaining=S().filter(i=>!h.players[i].fold);if(remaining.length===1){aiFinish();return}if(h.players[db.selected]?.fold||h.players[db.selected]?.allin){let n=db.selected;for(let k=0;k<db.settings.count;k++){n=next(n);if(!h.players[n].fold&&!h.players[n].allin){db.selected=n;break}}}}aiOldRender();if(db.mode==='ai'&&db.hand&&db.page==='live'&&db.hand.street===3&&bettingClosed(db.hand)){const endedHand=db.hand;setTimeout(()=>{if(db.mode==='ai'&&db.hand===endedHand&&db.page==='live')openShowdown()},0);return}if(db.mode!=='ai'||!db.hand||db.page!=='live'||db.selected===db.settings.hero||aiPending)return;aiPending=true;const h=db.hand;setTimeout(()=>{aiPending=false;if(db.mode!=='ai'||db.hand!==h||db.page!=='live')return;const i=db.selected,p=h.players[i];if(!p||p.fold||p.allin)return;const need=Math.max(0,h.target-p.paid),stack=db.game.stacks[i],cards=aiHoles[i]||[],pot=h.pot,bb=blinds()[1];if(cards.length!==2)return;
+const rv=c=>14-ranks.indexOf(c[0]),a=rv(cards[0]),b=rv(cards[1]),hi=Math.max(a,b),lo=Math.min(a,b),pair=a===b,suited=cards[0][1]===cards[1][1],gap=hi-lo,roll=Math.random();
+const opponents=S().filter(j=>j!==i&&!h.players[j].fold).length;
+const position=S().indexOf(i),early=position>=0&&position<Math.max(2,Math.floor(S().length/3));
+const openScore=pair?Math.min(1,.39+hi*.043):Math.min(.95,.04+hi*.031+lo*.014+(suited?.085:0)+(gap===1?.045:gap===2?.018:0));
+let strength=openScore,draw=false,nutLike=false,boardOnly=false;
+if(h.board.length>=3){
+ const sc=handScore([...cards,...h.board]),bc=h.board.length===5?handScore(h.board):null,category=sc?.[0]??0;
+ boardOnly=!!bc&&JSON.stringify(sc)===JSON.stringify(bc);
+ const boardRanks=h.board.map(rv),top=Math.max(...boardRanks);
+ const boardPairs=boardRanks.filter((v,k)=>boardRanks.indexOf(v)!==k).length;
+ const myPair=cards.some(c=>boardRanks.includes(rv(c)));
+ const overpair=pair&&lo>top;
+ const flushBoard=Math.max(...['S','H','D','C'].map(u=>h.board.filter(c=>c[1]===u).length));
+ const boardDanger=(flushBoard>=4?.16:flushBoard===3?.07:0)+(boardPairs>=2?.09:0);
+ strength=category>=6?.97:category===5?.92:category===4?.88:category===3?.81:category===2?.68:category===1?(overpair?.72:myPair&&hi>=top?.63:myPair?.49:.40):.13;
+ if(boardOnly)strength=Math.min(strength,.24);
+ if(category===2&&boardPairs>=2&&!myPair&&!pair)strength=Math.min(strength,.25);
+ if(category===1&&boardPairs>=2&&!myPair&&!pair)strength=Math.min(strength,.20);
+ if(h.board.length<5){
+  const all=[...cards,...h.board],flushCount=Math.max(...['S','H','D','C'].map(u=>all.filter(c=>c[1]===u).length));
+  const unique=[...new Set(all.map(rv))];if(unique.includes(14))unique.push(1);
+  draw=flushCount===4&&cards.some(c=>all.filter(x=>x[1]===c[1]).length===4)||[...Array(10)].some((_,k)=>[k+1,k+2,k+3,k+4,k+5].filter(v=>unique.includes(v)).length===4);
+  if(draw)strength=Math.max(strength,.39);
+ }
+ strength=Math.max(.04,strength-boardDanger-(opponents>1?.035*(opponents-1):0));
+ nutLike=category>=5||category===4&&flushBoard<3||category===3&&boardPairs<2;
+}
+const odds=need/(pot+need||1),pressure=need/Math.max(1,stack+need),canRaise=stack>need+bb*2;
+const minTotal=h.target>0?Math.max(h.target*2,h.target+bb):bb;
+const target=Math.min(p.paid+stack,Math.max(minTotal,Math.ceil((h.target+Math.max(bb*2,pot*.55))/bb)*bb));
+if(h.street===0){
+ const facingRaise=h.target>bb,threshold=(early?.63:.53)+(facingRaise?.10:0)+(opponents>=5?.025:0);
+ const premium=pair&&hi>=11||hi===14&&lo>=12;
+ if(need>0&&openScore<threshold-(need<=bb?.09:0)){act(i,'폴드',0)}
+ else if(canRaise&&target>h.target&&(premium||openScore>threshold+.13)&&roll<(premium?.86:.67)){act(i,'레이즈',target)}
+ else if(need===0){act(i,'체크',0)}
+ else if(openScore>=threshold-.06||need<=bb&&openScore>=threshold-.13){act(i,'콜',0)}
+ else act(i,'폴드',0);
+}else{
+ const required=odds+(opponents>1?.055:0);
+ if(need>0&&(strength<required+.055&&!draw||pressure>.36&&!nutLike&&strength<.70||need>pot*.8&&!nutLike&&strength<.69)){act(i,'폴드',0)}
+ else if(canRaise&&target>h.target&&!boardOnly&&(nutLike||strength>.78)&&roll<(nutLike?.73:.43)){act(i,'레이즈',target)}
+ else if(need===0&&strength>.61&&!boardOnly&&roll<.66){act(i,'베팅',Math.min(p.paid+stack,Math.max(bb,Math.ceil(pot*.55/bb)*bb)))}
+ else act(i,need?'콜':'체크',0);
+}},450)};
 
 try{render()}catch(e){document.getElementById('app').innerHTML='<div class="card"><h2>실행 문제 감지</h2><p class="note">'+String(e.message).replace(/[<>]/g,'')+'</p><button onclick="location.reload()">새로고침</button></div>'}
 </script></body></html>

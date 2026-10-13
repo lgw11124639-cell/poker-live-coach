@@ -192,15 +192,15 @@ if(h.board.length>=3){
  boardOnly=!!bc&&JSON.stringify(sc)===JSON.stringify(bc);
  const boardRanks=h.board.map(rv),top=Math.max(...boardRanks);
  const boardPairs=boardRanks.filter((v,k)=>boardRanks.indexOf(v)!==k).length;
+ const flushBoard=Math.max(...['S','H','D','C'].map(u=>h.board.filter(c=>c[1]===u).length));
  const topPair=cards.some(c=>rv(c)===top),middlePair=cards.some(c=>boardRanks.includes(rv(c))&&!topPair);
  const topKicker=Math.max(...cards.filter(c=>rv(c)!==top).map(rv),0);
- const flopDry=new Set(boardRanks).size===boardRanks.length;
+ const flopDry=flushBoard<3&&new Set(boardRanks).size===boardRanks.length;
  const valueTopPair=category===1&&topPair&&(topKicker>=10||flopDry);
  const valueSecondPair=category===1&&middlePair&&opponents===1&&flopDry;
 
  const myPair=cards.some(c=>boardRanks.includes(rv(c)));
  const overpair=pair&&lo>top;
- const flushBoard=Math.max(...['S','H','D','C'].map(u=>h.board.filter(c=>c[1]===u).length));
  const boardDanger=(flushBoard>=4?.16:flushBoard===3?.07:0)+(boardPairs>=2?.09:0);
  strength=category>=6?.97:category===5?.92:category===4?.88:category===3?.81:category===2?.68:category===1?(overpair?.72:myPair&&hi>=top?.63:myPair?.49:.40):.13;
  if(boardOnly)strength=Math.min(strength,.24);

@@ -192,6 +192,12 @@ if(h.board.length>=3){
  boardOnly=!!bc&&JSON.stringify(sc)===JSON.stringify(bc);
  const boardRanks=h.board.map(rv),top=Math.max(...boardRanks);
  const boardPairs=boardRanks.filter((v,k)=>boardRanks.indexOf(v)!==k).length;
+ const topPair=cards.some(c=>rv(c)===top),middlePair=cards.some(c=>boardRanks.includes(rv(c))&&!topPair);
+ const topKicker=Math.max(...cards.filter(c=>rv(c)!==top).map(rv),0);
+ const flopDry=flushBoard<3&&new Set(boardRanks).size===boardRanks.length;
+ const valueTopPair=category===1&&topPair&&(topKicker>=10||flopDry);
+ const valueSecondPair=category===1&&middlePair&&opponents===1&&flopDry;
+
  const myPair=cards.some(c=>boardRanks.includes(rv(c)));
  const overpair=pair&&lo>top;
  const flushBoard=Math.max(...['S','H','D','C'].map(u=>h.board.filter(c=>c[1]===u).length));
@@ -204,7 +210,7 @@ if(h.board.length>=3){
   const all=[...cards,...h.board],flushCount=Math.max(...['S','H','D','C'].map(u=>all.filter(c=>c[1]===u).length));
   const unique=[...new Set(all.map(rv))];if(unique.includes(14))unique.push(1);
   draw=flushCount===4&&cards.some(c=>all.filter(x=>x[1]===c[1]).length===4)||[...Array(10)].some((_,k)=>[k+1,k+2,k+3,k+4,k+5].filter(v=>unique.includes(v)).length===4);
-  if(draw)strength=Math.max(strength,.39);
+  if(draw)strength=Math.max(strength,.47);
  }
  strength=Math.max(.04,strength-boardDanger-(opponents>1?.035*(opponents-1):0));
  nutLike=category>=5||category===4&&flushBoard<3||category===3&&boardPairs<2;
@@ -223,8 +229,8 @@ if(h.street===0){
 }else{
  const required=odds+(opponents>1?.055:0);
  if(need>0&&(strength<required+.055&&!draw||pressure>.36&&!nutLike&&strength<.70||need>pot*.8&&!nutLike&&strength<.69)){act(i,'폴드',0)}
- else if(canRaise&&target>h.target&&!boardOnly&&(nutLike||strength>.78)&&roll<(nutLike?.73:.43)){act(i,'레이즈',target)}
- else if(need===0&&strength>.61&&!boardOnly&&roll<.66){act(i,'베팅',Math.min(p.paid+stack,Math.max(bb,Math.ceil(pot*.55/bb)*bb)))}
+ else if(canRaise&&target>h.target&&!boardOnly&&(nutLike||strength>.78||valueTopPair&&need<=pot*.4&&opponents===1)&&roll<(nutLike?.73:valueTopPair?.25:.43)){act(i,'레이즈',target)}
+ else if(need===0&&!boardOnly&&(strength>.61||valueTopPair||valueSecondPair||draw)&&roll<(valueTopPair?.78:valueSecondPair?.38:draw?.48:.66)){act(i,'베팅',Math.min(p.paid+stack,Math.max(bb,Math.ceil(pot*(valueTopPair?.48:draw?.42:.55)/bb)*bb)))}
  else act(i,need?'콜':'체크',0);
 }},450)};
 

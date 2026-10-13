@@ -45,8 +45,24 @@ body:has(.live-list) .live-list-grid .seat.ai-compact-row{display:flex;flex-wrap
 .live-list-grid .seat.ai-compact-row>small{display:none!important}
 .live-list-grid .seat.ai-compact-row .ai-stack-inline{display:block!important;flex:0 0 auto;white-space:nowrap;font-size:10px;color:#bfcbe0}
 @media(max-width:420px){.live-list-grid .seat.ai-compact-row .seat-head>b{font-size:10px}.live-list-grid .seat.ai-compact-row .action-inline{font-size:9px}.live-list-grid .seat.ai-compact-row .ai-stack-inline{font-size:9px}}
-</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v115</div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
+</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v116</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
 'use strict';
+const AI_APP_VERSION='v116';
+async function aiCheckUpdate(){
+ try{
+  const res=await fetch('ai-live.html?check='+Date.now(),{cache:'no-store'});
+  if(!res.ok)return;
+  const html=await res.text();
+  const found=html.match(/AI_APP_VERSION='(v[0-9]+)'/);
+  if(found&&found[1]!==AI_APP_VERSION){
+   const bar=document.getElementById('aiUpdateBar');
+   if(bar){bar.hidden=false;bar.textContent='새 버전 '+found[1]+' · 터치해서 업데이트';}
+  }
+ }catch(e){console.warn('Update check failed',e)}
+}
+document.addEventListener('visibilitychange',function(){if(!document.hidden)aiCheckUpdate()});
+window.addEventListener('pageshow',function(){setTimeout(aiCheckUpdate,1000)});
+
 window.addEventListener('error',function(e){let a=document.getElementById('app');if(a)a.innerHTML='<div class="card"><h2>앱 실행 오류</h2><p>앱 실행 중 문제가 발생했습니다.</p><p class="note">'+String(e.message||'알 수 없는 오류').replace(/[<>]/g,'')+'</p><button class="wide primary" onclick="location.reload()">다시 시도</button></div>'});
 const KEY='plc_ai_copy_v1',LEVELS=[[100,200],[200,400],[300,600],[400,800],[500,1000],[600,1200],[800,1600],[1000,2000],[1500,3000],[2000,4000],[3000,6000],[4000,8000],[5000,10000],[6000,12000],[7000,14000],[8000,16000],[9000,18000],[10000,20000],[15000,30000],[20000,40000],[25000,50000],[30000,60000],[35000,70000],[40000,80000]];
 const CHIPS=[[100,'#e2ba2e'],[500,'#ec79b0'],[1000,'#258e4e'],[5000,'#ec8427'],[10000,'#26272b'],[25000,'#266bcc'],[50000,'#cc333f']];

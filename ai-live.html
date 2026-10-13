@@ -186,7 +186,7 @@ const rv=c=>14-ranks.indexOf(c[0]),a=rv(cards[0]),b=rv(cards[1]),hi=Math.max(a,b
 const opponents=S().filter(j=>j!==i&&!h.players[j].fold).length;
 const position=S().indexOf(i),early=position>=0&&position<Math.max(2,Math.floor(S().length/3));
 const openScore=pair?Math.min(1,.39+hi*.043):Math.min(.95,.04+hi*.031+lo*.014+(suited?.085:0)+(gap===1?.045:gap===2?.018:0));
-let strength=openScore,draw=false,nutLike=false,boardOnly=false;
+let strength=openScore,draw=false,nutLike=false,boardOnly=false,valueTopPair=false,valueSecondPair=false;
 if(h.board.length>=3){
  const sc=handScore([...cards,...h.board]),bc=h.board.length===5?handScore(h.board):null,category=sc?.[0]??0;
  boardOnly=!!bc&&JSON.stringify(sc)===JSON.stringify(bc);
@@ -196,8 +196,8 @@ if(h.board.length>=3){
  const topPair=cards.some(c=>rv(c)===top),middlePair=cards.some(c=>boardRanks.includes(rv(c))&&!topPair);
  const topKicker=Math.max(...cards.filter(c=>rv(c)!==top).map(rv),0);
  const flopDry=flushBoard<3&&new Set(boardRanks).size===boardRanks.length;
- const valueTopPair=category===1&&topPair&&(topKicker>=10||flopDry);
- const valueSecondPair=category===1&&middlePair&&opponents===1&&flopDry;
+ valueTopPair=category===1&&topPair&&(topKicker>=10||flopDry);
+ valueSecondPair=category===1&&middlePair&&opponents===1&&flopDry;
 
  const myPair=cards.some(c=>boardRanks.includes(rv(c)));
  const overpair=pair&&lo>top;

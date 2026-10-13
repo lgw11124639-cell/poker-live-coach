@@ -154,7 +154,7 @@ function aiShuffle(){const cards=[];for(const r of ranks)for(const u of suits)ca
 function aiDeal(){if(!db.hand)return;aiDeck=aiShuffle();aiHoles={};for(const i of S())if(!db.hand.players[i].fold)aiHoles[i]=[aiDeck.pop(),aiDeck.pop()];db.hand.hero=[...(aiHoles[db.settings.hero]||[])];db.page='live';save()}
 const aiOldNewHand=newHand;
 newHand=function(){aiOldNewHand();if(db.mode==='ai'&&db.hand)aiDeal()};
-function aiStart(){db.settings.hero=1;db.settings.emptySeats=[];db.settings.count=10;db.settings.stack=30000;db.settings.levelMinutes=10;db.names[1]='나';for(let i=2;i<=10;i++)db.names[i]='AI '+i;createGame('ai');if(db.hand){db.page='live';save();render()}}
+function aiStart(){try{db.settings.hero=1;db.settings.emptySeats=[];db.settings.count=10;db.settings.stack=30000;db.settings.levelMinutes=10;db.names[1]='나';for(let i=2;i<=10;i++)db.names[i]='AI '+i;createGame('ai');if(!db.hand)throw Error('핸드 생성 실패');db.page='live';save();render()}catch(e){const box=document.getElementById('app');if(box)box.insertAdjacentHTML('afterbegin','<div class="card" style="border:2px solid #e77"><b>AI 시작 오류</b><p>'+E(e?.message||String(e))+'</p></div>');console.error(e)}}
 const aiOldBoard=beginBoardStep;
 beginBoardStep=function(){aiOldBoard();if(db.mode==='ai'&&db.hand){const h=db.hand;if(db.page==='runout'){while(h.board.length<5)h.board.push(aiDeck.pop());runoutConfirm()}else if(db.page==='board-step'){while(h.board.length<[0,3,4,5][h.street])h.board.push(aiDeck.pop());confirmBoardStep()}}};
 const aiOldShowdown=openShowdown;

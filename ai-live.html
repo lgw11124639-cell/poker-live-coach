@@ -194,7 +194,7 @@ if(h.board.length>=3){
  const boardPairs=boardRanks.filter((v,k)=>boardRanks.indexOf(v)!==k).length;
  const topPair=cards.some(c=>rv(c)===top),middlePair=cards.some(c=>boardRanks.includes(rv(c))&&!topPair);
  const topKicker=Math.max(...cards.filter(c=>rv(c)!==top).map(rv),0);
- const flopDry=flushBoard<3&&new Set(boardRanks).size===boardRanks.length;
+ const flopDry=new Set(boardRanks).size===boardRanks.length;
  const valueTopPair=category===1&&topPair&&(topKicker>=10||flopDry);
  const valueSecondPair=category===1&&middlePair&&opponents===1&&flopDry;
 

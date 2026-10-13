@@ -17,6 +17,17 @@
 .seat-empty{opacity:.58!important;border:1px dashed #64748b!important;background:#0d1729!important}.seat-empty .seat-head>b{color:#94a3b8!important} 
 .setup-seats{display:flex;flex-direction:column;gap:8px;margin:12px 0}.setup-seat{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #354763;border-radius:12px;background:#111e33}.setup-seat-name{flex:1;min-width:0;margin:0!important}.setup-seat-name span{display:block;font-size:12px;font-weight:700;margin-bottom:5px}.setup-seat-name input{width:100%;box-sizing:border-box}.setup-seat-empty{display:flex;align-items:center;gap:7px;flex:0 0 auto;white-space:nowrap;margin:0!important;font-size:13px;font-weight:700;cursor:pointer}.setup-seat-empty input{width:19px;height:19px;accent-color:#e8b55d}.setup-seat.is-empty{border-style:dashed;opacity:.72}.setup-seat.is-empty .setup-seat-name input{opacity:.45}@media(max-width:390px){.setup-seat{gap:7px;padding:8px}.setup-seat-empty{font-size:12px}}
 .start-mode-options{display:grid;gap:12px;margin-top:16px}.start-mode-options button{min-height:80px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;text-align:left;font-size:17px}.start-mode-options button small{font-size:12px;opacity:.8;font-weight:400}.setup-seat-name input+input{margin-top:7px}
+
+/* v58: compact 10-seat setup for phone */
+.setup-seats{gap:5px!important;margin:8px 0!important}
+.setup-seat{display:grid!important;grid-template-columns:minmax(0,1fr) 88px!important;gap:8px!important;min-height:45px!important;padding:5px 8px!important;border-radius:9px!important}
+.setup-seat-name{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important}
+.setup-seat-name span{display:inline-block!important;flex:0 0 36px!important;white-space:nowrap!important;margin:0!important;font-size:12px!important}
+.setup-seat-name input{flex:1!important;min-width:0!important;width:100%!important;height:36px!important;min-height:0!important;margin:0!important;padding:5px 8px!important;font-size:14px!important}
+.setup-seat-empty{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:5px!important;font-size:12px!important}
+.setup-seat-empty input{width:18px!important;height:18px!important;flex:0 0 18px!important;margin:0!important}
+.setup-seat.is-empty{background:rgba(100,116,139,.08)!important}
+@media(max-width:370px){.setup-seat{grid-template-columns:minmax(0,1fr) 76px!important;gap:5px!important;padding:4px 5px!important}.setup-seat-name{gap:4px!important}.setup-seat-name span{flex-basis:32px!important;font-size:11px!important}.setup-seat-empty{font-size:11px!important}}
 </style></head><body><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
 'use strict';
 window.addEventListener('error',function(e){let a=document.getElementById('app');if(a)a.innerHTML='<div class="card"><h2>앱 실행 오류</h2><p>앱 실행 중 문제가 발생했습니다.</p><p class="note">'+String(e.message||'알 수 없는 오류').replace(/[<>]/g,'')+'</p><button class="wide primary" onclick="location.reload()">다시 시도</button></div>'});

@@ -45,9 +45,9 @@ body:has(.live-list) .live-list-grid .seat.ai-compact-row{display:flex;flex-wrap
 .live-list-grid .seat.ai-compact-row>small{display:none!important}
 .live-list-grid .seat.ai-compact-row .ai-stack-inline{display:block!important;flex:0 0 auto;white-space:nowrap;font-size:10px;color:#bfcbe0}
 @media(max-width:420px){.live-list-grid .seat.ai-compact-row .seat-head>b{font-size:10px}.live-list-grid .seat.ai-compact-row .action-inline{font-size:9px}.live-list-grid .seat.ai-compact-row .ai-stack-inline{font-size:9px}}
-</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v140</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
+</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v141</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
 'use strict';
-const AI_APP_VERSION='v140';
+const AI_APP_VERSION='v141';
 async function aiCheckUpdate(){
  try{
   const res=await fetch('ai-live.html?check='+Date.now(),{cache:'no-store'});
@@ -134,10 +134,52 @@ function aiRangeHas(spec,hand){
  return spec.split(',').some(x=>single(x.trim()));
 }
 function aiRangeHand(cards){const order='AKQJT98765432',a=cards[0][0],b=cards[1][0],hi=order.indexOf(a)<order.indexOf(b)?a:b,lo=hi===a?b:a;return hi===lo?hi+lo:hi+lo+(cards[0][1]===cards[1][1]?'s':'o')}
+// Solver charts must be imported from a licensed/owned source; no invented frequencies.
+const AI_SOLVER_KEY='poker_live_coach_solver_charts_v1';
+let aiSolverCharts=[];try{const v=JSON.parse(localStorage.getItem(AI_SOLVER_KEY)||'[]');if(Array.isArray(v))aiSolverCharts=v}catch(e){console.warn('solver charts load',e)}
+function aiSolverImport(event){
+ const file=event.target.files?.[0];if(!file)return;
+ const reader=new FileReader();reader.onload=()=>{
+  try{
+   const parsed=JSON.parse(String(reader.result)),charts=Array.isArray(parsed)?parsed:parsed.charts;
+   if(!Array.isArray(charts)||!charts.length||charts.length>2000)throw Error('charts 배열(1~2000개)이 필요합니다.');
+   const valid=['fold','call','check','raise','allin'];
+   for(const chart of charts){
+    if(!chart||!['open','vs_open','vs_3bet','vs_4bet'].includes(chart.spot)||!AI_RANGE_TABLE[chart.position]||!Number.isFinite(chart.stackBB)||chart.stackBB<1||chart.stackBB>1000||!chart.hands||typeof chart.hands!=='object'||Array.isArray(chart.hands))throw Error('차트 형식 오류: spot, position, stackBB, hands 확인');
+    for(const [hand,mix] of Object.entries(chart.hands)){
+     if(!/^(?:[2-9TJQKA]{2}|[2-9TJQKA]{2}[so])$/.test(hand)||!mix||typeof mix!=='object')throw Error('핸드 형식 오류: '+hand);
+     const entries=Object.entries(mix);if(!entries.length||entries.some(([a,f])=>!valid.includes(a)||!Number.isFinite(f)||f<0||f>1)||Math.abs(entries.reduce((n,[,f])=>n+f,0)-1)>.025)throw Error(hand+' 액션 빈도 합계가 1이 아닙니다.');
+    }
+   }
+   localStorage.setItem(AI_SOLVER_KEY,JSON.stringify(charts));aiSolverCharts=charts;alert('솔버 차트 '+charts.length+'개를 저장했습니다.');render();
+  }catch(e){alert('솔버 차트 가져오기 실패: '+e.message)}
+ };reader.readAsText(file);event.target.value='';
+}
+function aiSolverClear(){if(!confirm('가져온 솔버 차트를 모두 삭제할까요?'))return;localStorage.removeItem(AI_SOLVER_KEY);aiSolverCharts=[];render()}
+function aiSolverLookup(pos,spot,stackBB,hand,opener,bb){
+ const choices=aiSolverCharts.filter(x=>x.position===pos&&x.spot===spot&&(!x.opener||x.opener===opener)&&(!x.anteBB||Math.abs(x.anteBB-(ante()/bb))<.01)&&(!x.players||x.players===S().filter(i=>db.game.stacks[i]>0||db.hand.players[i]?.total>0).length)&&x.hands[hand]);
+ choices.sort((a,b)=>Math.abs(a.stackBB-stackBB)-Math.abs(b.stackBB-stackBB));
+ const chart=choices[0];if(!chart||Math.abs(chart.stackBB-stackBB)>Math.max(3,chart.stackBB*.15))return null;
+ return {chart,mix:chart.hands[hand]};
+}
+function aiSolverAdvice(pos,spot,stackBB,hand,opener,bb,paid,stack,need,h){
+ const hit=aiSolverLookup(pos,spot,stackBB,hand,opener,bb);if(!hit)return null;
+ const {chart,mix}=hit,entries=Object.entries(mix).sort((a,b)=>b[1]-a[1]),[best,freq]=entries[0],fmt=n=>Math.round(n).toLocaleString()+'칩';
+ const sizing=raiseSizing(),max=paid+stack,min=sizing?.minimum||bb,defaultMult=spot==='open'?2.5:spot==='vs_open'?3.2:2.25;
+ const suggested=Number(chart.raiseToBB)||Number(chart.raiseMultiplier)*(h.target||bb)||((h.target||bb)*defaultMult);
+ const amount=Math.min(max,Math.max(min,Math.round(suggested/bb)*bb));
+ let decision={fold:'폴드',call:'콜',check:'체크',raise:'레이즈',allin:'올인'}[best];
+ if(decision==='레이즈'&&(!sizing?.canRaise||amount<=h.target))return null;
+ if(decision==='체크'&&need>0)return null;
+ if(decision==='콜'&&need===0)decision='체크';
+ const mixText=entries.map(([a,f])=>a+' '+(f*100).toFixed(0)+'%').join(' / ');
+ return {title:'솔버 '+decision+(decision==='레이즈'?' · 총 '+fmt(amount):''),decision,amount:decision==='레이즈'?amount:0,reason:'가져온 솔버 차트 '+(chart.source||'사용자 데이터')+' · '+chart.stackBB+'BB · '+pos+' · '+spot+' · '+hand+'. 혼합 전략: '+mixText+'. 가장 높은 빈도의 액션을 표시합니다. 다른 스택·앤티·상대 액션에는 그대로 적용하지 마세요.',solver:true,frequency:freq};
+}
 function aiPreflopAdvice(o){
  const h=db.hand,me=db.settings.hero;if(!h||!o||h.street!==0||h.hero.length!==2||db.selected!==me)return null;
  const pos=position(me),range=AI_RANGE_TABLE[pos]||AI_RANGE_TABLE.MP,hand=aiRangeHand(h.hero),bb=aiBlindAt(h.level)[1],paid=h.players[me]?.paid||0,stack=db.game.stacks[me]||0,effBB=(paid+stack)/Math.max(1,bb),need=o.call||0;
  const prior=h.logs.filter(x=>x.street===0&&x.seat!==me&&['레이즈','올인'].includes(x.type)&&x.paid>bb),raises=prior.length,opener=raises?position(prior[0].seat):null;
+ const spot=raises===0?'open':raises===1?'vs_open':raises===2?'vs_3bet':'vs_4bet';const solver=aiSolverAdvice(pos,spot,effBB,hand,opener,bb,paid,stack,need,h);if(solver)return solver;
  const [openRange,valueRange,bluffRange,defendRange]=range,opening=aiRangeHas(openRange,hand),value=aiRangeHas(valueRange,hand),bluff=aiRangeHas(bluffRange,hand),defend=aiRangeHas(defendRange,hand);
  const sizing=raiseSizing(),max=paid+stack,min=sizing?.minimum||bb,ip=['BTN','CO','HJ'].includes(pos),mult=raises>=2?2.25:raises===1?(ip?3:3.5):pos==='SB'?3:ip?2.2:2.5;
  const total=Math.min(max,Math.max(min,Math.round((raises?h.target:bb)*mult/bb)*bb)),canRaise=!!sizing?.canRaise&&total>h.target&&total>paid;
@@ -213,7 +255,7 @@ function manualBet(){const h=db.hand;if(!h)return;const p=h.players[db.selected]
 function chipClear(){db.chipEntry=0;save();render()}
 function chipCommit(){const h=db.hand;if(!h)return;const p=h.players[db.selected];if(!p)return;const input=document.getElementById('bet-amount');const amount=input?Number(input.value):Number(db.chipEntry);if(!Number.isInteger(amount)||amount<=0||amount>db.game.stacks[db.selected]){alert('보유 스택 이내의 올바른 금액을 입력하세요.');return}db.chipEntry=amount;const goal=p.paid+amount;if(goal<=h.target){if(goal===h.target){db.chipEntry=0;act(db.selected,'콜',0);return}alert('현재 베팅보다 많은 금액을 입력하거나 콜 버튼을 누르세요.');return}db.chipEntry=0;act(db.selected,h.target>0?'레이즈':'베팅',goal)}
 const pickerGrid=()=>{const h=db.hand,used=new Set([...(h?.hero||[]),...(h?.board||[]),...Object.values(h?.shown||{}).flat()]);const current=db.pick==='hero'?h?.hero:db.pick==='board'?h?.board:h?.shown?.[db.pickSeat];return '<div class="select-card-grid">'+[...suits].map(t=>'<div class="select-card-suit">'+[...ranks].map(r=>{const c=r+t,taken=used.has(c),own=(current||[]).includes(c);return '<button style="color:'+(taken?'#64748b':cardColor(t))+';background:'+(taken?'#d1d5db':'#fff')+';filter:'+(taken?'grayscale(1)':'none')+';opacity:'+(taken?'.72':'1')+';border:'+(own?'2px solid #334155':'1px solid #cbd5e1')+'" '+(taken&&!own?'disabled':'onclick="pickCard(\''+c+'\')"')+'>'+r+suit[t]+'</button>'}).join('')+'</div>').join('')+'</div>'};
-function render(){if(!db.settings.rebuyStack)db.settings.rebuyStack=40000;const root=document.getElementById('app'),h=db.hand,g=db.game;let out='<header><h1>♠ POKER LIVE COACH</h1><button onclick="go(\'home\')">홈</button></header>';
+function render(){if(!db.settings.rebuyStack)db.settings.rebuyStack=40000;const root=document.getElementById('app'),h=db.hand,g=db.game;let out='<header><h1>♠ POKER LIVE COACH</h1><button onclick="go(\'home\')">홈</button></header>';if(db.mode==='ai')out+='<div class="card"><b>GTO 솔버 차트</b> <small>가져온 차트 '+aiSolverCharts.length+'개 · 일치하는 차트가 없으면 근사 레인지 사용</small><div class="wrap"><label class="btn" style="display:inline-block;cursor:pointer;padding:8px;border:1px solid #64748b;border-radius:8px">솔버 JSON 가져오기<input type="file" accept=".json,application/json" onchange="aiSolverImport(event)" style="display:none"></label><button onclick="aiSolverClear()">차트 초기화</button></div><small>형식: {charts:[{source,spot,position,stackBB,opener?,anteBB?,players?,raiseToBB?,hands:{AKs:{raise:0.7,call:0.3}}}]}. 실제 솔버 데이터만 사용하세요.</small></div>';
 if(db.mode==='ai'&&g){const bl=blinds(),handLevel=db.hand?db.hand.level:db.level,handBlinds=aiBlindAt(handLevel),pending=!!db.hand&&handLevel!==db.level;out+='<div class="card" style="position:sticky;top:48px;z-index:40;background:#17263d;border:1px solid #b99a61;padding:12px"><b>♠ 현재 핸드 레벨 '+(handLevel+1)+' · '+F(handBlinds[0])+' / '+F(handBlinds[1])+'</b> <span style="float:right;color:#e9be74" id="ai-blind-timer">'+Math.floor(Math.max(0,60-db.elapsed)/60)+':'+String(Math.max(0,60-db.elapsed)%60).padStart(2,'0')+'</span><div class="note">'+(pending?'다음 핸드: 레벨 '+(db.level+1)+' · '+F(bl[0])+' / '+F(bl[1])+' · ':'')+'1분 자동 상승 · 2,000/4,000까지 자동 리바인</div><div style="display:flex;gap:6px;margin-top:8px;align-items:center"><small>AI 진행 속도</small>'+[1,2,4,8,16].map(n=>'<button style="padding:6px 12px;'+(aiSpeed()===n?'background:#c9a15c;color:#111827;':'')+'" onclick="aiSetSpeed('+n+')">'+n+'배속</button>').join('')+'</div></div>'}if(db.page==='home'&&db.mode==='ai'){out+='<div class="card"><h3>AI 토너먼트 검증 기록</h3><p>저장된 핸드 '+aiAudit.length+'개 · 오류 감지 '+aiAudit.filter(x=>x.checks?.errors?.length).length+'개</p><button class="wide primary" onclick="aiAuditExport()">전체 핸드 기록 JSON 내보내기</button><button class="wide" onclick="aiAuditClear()">검증 기록 초기화</button></div>'}if(db.page==='home'){out+='<div class="card"><h2>실전에서 기록하고, 같은 상대와 연습하기</h2><p class="muted">실전 행동 데이터가 AI 상대의 플레이 성향에 반영됩니다.</p><button class="wide primary" onclick="go(\'start-mode\')">실전 기록 시작</button><button class="wide" onclick="aiStart()">♠ AI 토너먼트 연습 · 랜덤 카드 분배</button><button class="wide" onclick="go(\'players\')">실전 기록 분석</button><button class="wide" onclick="go(\'history\')">저장된 핸드 '+db.hands.length+'개</button></div>'}
 if(db.page==='ai-result'&&db.aiLastResult){out+='<div class="card"><b>AI 검증 기록 '+aiAudit.length+'핸드 저장됨</b><button class="wide" onclick="aiAuditExport()">전체 핸드 기록 내보내기</button></div>';const z=db.aiLastResult,winnerIds=new Set(z.winners||[]),paid=Object.create(null);for(const p of z.results||[])for(const [seat,amount] of Object.entries(p.payouts||{}))paid[seat]=(paid[seat]||0)+amount;const shown=Object.entries(z.shown||{}).map(([seat,cards])=>({seat:Number(seat),cards}));out+='<div class="card"><h2>🏆 핸드 #'+z.handNo+' 결과</h2><div style="padding:15px;border:2px solid #d9b66f;border-radius:12px;background:#263249;margin:12px 0"><div style="font-size:14px;color:#e8c780">이번 핸드 승자</div><div style="font-size:23px;font-weight:800;color:#f6d18a;margin:7px 0">'+(z.winners?.length?z.winners.map(i=>'🏆 '+E(z.names?.[i]||('AI '+i))).join(' · '):'승자 정보 없음')+'</div><div>총 팟 '+F(z.results.reduce((n,p)=>n+p.amount,0))+'칩</div></div><h3>공용 보드</h3><div class="selected-cards">'+(z.board.map(face).join('')||'보드 공개 전 종료')+'</div><h3>참가자 · 행동 현황 / 공개 핸드</h3>'+shown.map(({seat,cards})=>'<div class="card" style="margin:8px 0;border:'+(winnerIds.has(seat)?'2px solid #d9b66f':'1px solid #3d4b62')+'"><div class="row"><b>'+(winnerIds.has(seat)?'🏆 승리 · ':'')+E(z.names?.[seat]||('좌석 '+seat))+' · '+E(z.positions?.[seat]||'—')+(seat===z.heroSeat?' (나)':'')+'</b><b style="color:#e8c780">'+(paid[seat]?'+'+F(paid[seat])+'칩':'미획득')+'</b></div><div class="selected-cards">'+(cards||[]).map(face).join('')+'</div>'+(z.board.length===5&&cards?.length===2?'<p class="muted">족보: '+['하이카드','원페어','투페어','트립스','스트레이트','플러시','풀하우스','포카드','스트레이트 플러시'][handScore([...cards,...z.board])?.[0]||0]+'</p>':'')+'</div>').join('')+'<h3>팟별 정산</h3>'+z.results.map((p,i)=>'<div class="card" style="margin:8px 0"><b>'+(i?(p.eligible.length===1?'단독 획득 팟':'사이드팟 '+i):'메인팟')+' · '+F(p.amount)+'칩</b>'+p.winners.map(j=>'<p>🏆 '+E(z.names?.[j]||('좌석 '+j))+' → +'+F(p.payouts[j])+'칩</p>').join('')+'</div>').join('')+'<p class="note" style="margin-top:14px">'+(z.heroFold?'내가 폴드한 뒤에도 AI들의 경기가 끝날 때까지 진행한 최종 정산입니다.':'쇼다운 및 최종 팟 정산입니다.')+' 다음 핸드는 버튼을 눌러야 시작합니다.</p><button class="wide primary" style="margin-top:16px;padding:17px;font-size:18px" onclick="aiNextHand()">다음 핸드 ▶</button>'+'</div>'}
 

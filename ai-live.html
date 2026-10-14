@@ -45,9 +45,9 @@ body:has(.live-list) .live-list-grid .seat.ai-compact-row{display:flex;flex-wrap
 .live-list-grid .seat.ai-compact-row>small{display:none!important}
 .live-list-grid .seat.ai-compact-row .ai-stack-inline{display:block!important;flex:0 0 auto;white-space:nowrap;font-size:10px;color:#bfcbe0}
 @media(max-width:420px){.live-list-grid .seat.ai-compact-row .seat-head>b{font-size:10px}.live-list-grid .seat.ai-compact-row .action-inline{font-size:9px}.live-list-grid .seat.ai-compact-row .ai-stack-inline{font-size:9px}}
-</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v149</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
+</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v150</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
 'use strict';
-const AI_APP_VERSION='v149';
+const AI_APP_VERSION='v150';
 async function aiCheckUpdate(){
  try{
   const res=await fetch('ai-live.html?check='+Date.now(),{cache:'no-store'});
@@ -435,20 +435,21 @@ if(h.street===0){
  const affordable=callBB<=Math.max(2.5,Math.min(6,effectiveBB*.12));
  const potPrice=odds<=.18&&callBB<=2.5;
  const defend=(defendPair||defendBroadway||defendSuited||defendConnector||potPrice&&openScore>=.40)&&affordable;
- const adjustedThreshold=threshold-(priorLimp?.015:0)-(odds<=.15?.015:0);
- if(need>0&&openScore<adjustedThreshold&&!defend){act(i,'폴드',0)}
- else if(canRaise&&fourBet&&monster&&raiseCap>h.target&&roll<.78){act(i,'레이즈',raiseCap)}
- else if(canRaise&&threeBet&&raiseCap>h.target&&((threeBetValue&&roll<(monster?.95:.78))||(threeBetBluff&&roll<.22))){act(i,'레이즈',raiseCap)}
- else if(canRaise&&!facingRaise&&target>h.target&&(premium||openScore>threshold+.10)&&roll<(premium?.94:.64)){act(i,'레이즈',target)}
+ const adjustedThreshold=threshold-aiStyle.looseness*.70-(priorLimp?.015:0)-(odds<=.15?.015:0);const aggressionBoost=aiStyle.aggression;const callBias=aiStyle.style==='CALL'?.13:aiStyle.style==='TP'?.035:aiStyle.style==='NIT'?-.04:0;const trapBias=aiStyle.style==='TRAP'&&monster?.45:0;
+ if(need>0&&openScore<adjustedThreshold-callBias&&!defend){act(i,'폴드',0)}
+ else if(canRaise&&fourBet&&monster&&raiseCap>h.target&&roll<Math.max(.12,Math.min(.98,.78+aggressionBoost*.5-trapBias))){act(i,'레이즈',raiseCap)}
+ else if(canRaise&&threeBet&&raiseCap>h.target&&((threeBetValue&&roll<Math.max(.12,Math.min(.98,(monster?.95:.78)+aggressionBoost*.65-trapBias)))||(threeBetBluff&&roll<Math.max(.02,.22+aggressionBoost*.45)))){act(i,'레이즈',raiseCap)}
+ else if(canRaise&&!facingRaise&&target>h.target&&(premium||openScore>threshold+.10)&&roll<Math.max(.08,Math.min(.98,(premium?.94:.64)+aggressionBoost*.7-trapBias))){act(i,'레이즈',target)}
  else if(need===0){act(i,'체크',0)}
- else if(openScore>=adjustedThreshold||defend){act(i,'콜',0)}
+ else if(openScore>=adjustedThreshold-callBias||defend){act(i,'콜',0)}
  else act(i,'폴드',0);
 }else{
  const multiway=opponents>1,largeBet=need>pot*.5,weakPair=strength<.60&&!nutLike,thinDraw=draw&&strength<.62;
- const required=odds+(multiway?.09:0)+(largeBet?.045:0);
+ const aggressionBoost=aiStyle.aggression,callBias=aiStyle.style==='CALL'?.16:aiStyle.style==='TP'?.035:aiStyle.style==='NIT'?-.055:0,trapBias=aiStyle.style==='TRAP'&&nutLike?.38:0;const required=odds+(multiway?.09:0)+(largeBet?.045:0)-callBias;
  if(need>0&&((strength<required+.09&&!draw)||(multiway&&weakPair&&need>pot*.24)||(multiway&&thinDraw&&need>pot*.32)||(pressure>.30&&!nutLike&&strength<.74)||(need>pot*.65&&!nutLike&&strength<.73))){act(i,'폴드',0)}
- else if(canRaise&&target>h.target&&!boardOnly&&(nutLike||strength>.78||valueTopPair&&need<=pot*.35&&opponents===1||draw&&opponents===1&&need<=pot*.4)&&roll<(nutLike?.87:strength>.78?.64:valueTopPair?.38:.20)){act(i,'레이즈',target)}
- else if(need===0&&!boardOnly&&(strength>.61||valueTopPair||valueSecondPair||draw)&&roll<(valueTopPair?.78:valueSecondPair?.38:draw?.48:.66)){act(i,'베팅',Math.min(p.paid+stack,Math.max(bb,Math.ceil(pot*(valueTopPair?.48:draw?.42:.55)/bb)*bb)))}
+ else if(canRaise&&target>h.target&&!boardOnly&&(nutLike||strength>.78||valueTopPair&&need<=pot*.35&&opponents===1||draw&&opponents===1&&need<=pot*.4)&&roll<Math.max(.04,Math.min(.98,(nutLike?.87:strength>.78?.64:valueTopPair?.38:.20)+aggressionBoost*.85-trapBias))){act(i,'레이즈',target)}
+ else if(need===0&&!boardOnly&&(strength>.61||valueTopPair||valueSecondPair||draw)&&roll<Math.max(.04,Math.min(.98,(valueTopPair?.78:valueSecondPair?.38:draw?.48:.66)+aggressionBoost*.85-trapBias))){act(i,'베팅',Math.min(p.paid+stack,Math.max(bb,Math.ceil(pot*(valueTopPair?.48:draw?.42:.55)/bb)*bb)))}
+ else if(need&&strength<required+.025&&aiStyle.style!=='CALL')act(i,'폴드',0);
  else act(i,need?'콜':'체크',0);
 }},Math.max(0,Math.round(100/aiSpeed())))};
 

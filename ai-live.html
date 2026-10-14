@@ -45,9 +45,9 @@ body:has(.live-list) .live-list-grid .seat.ai-compact-row{display:flex;flex-wrap
 .live-list-grid .seat.ai-compact-row>small{display:none!important}
 .live-list-grid .seat.ai-compact-row .ai-stack-inline{display:block!important;flex:0 0 auto;white-space:nowrap;font-size:10px;color:#bfcbe0}
 @media(max-width:420px){.live-list-grid .seat.ai-compact-row .seat-head>b{font-size:10px}.live-list-grid .seat.ai-compact-row .action-inline{font-size:9px}.live-list-grid .seat.ai-compact-row .ai-stack-inline{font-size:9px}}
-</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v157</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
+</style></head><body><div style="position:sticky;top:0;z-index:999;background:#101a2b;color:#e9be74;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;font-size:12px;font-weight:700;border-bottom:1px solid #34435d">♠ AI 토너먼트 | v158</div><div id="aiUpdateBar" hidden onclick="location.replace('ai-live.html?refresh='+Date.now())" style="background:#c9a15c;color:#111827;text-align:center;padding:12px;font-weight:700;position:sticky;top:0;z-index:10000"></div><main id="app"><div class="card"><h2>POKER LIVE COACH</h2><p>앱을 불러오는 중입니다.</p><p class="note">이 화면이 계속 보이면 Safari에서 새로고침해 주세요.</p></div></main><script>
 'use strict';
-const AI_APP_VERSION='v157';
+const AI_APP_VERSION='v158';
 async function aiCheckUpdate(){
  try{
   const res=await fetch('ai-live.html?check='+Date.now(),{cache:'no-store'});
@@ -201,7 +201,7 @@ function aiBuiltinSolverAdvice(pos,spot,stackBB,hand,opener,bb,paid,stack,need,h
  const eligible=AI_BUILTIN_SOLVER.filter(x=>x.scenario===scenario&&x.hero===sourcePos&&(!x.villain||x.villain===sourceOpener)&&(!x.players||x.players===(tenMax?9:players)));
  // Avoid using opponent-specific charts when the original raiser is unknown.
  if(spot!=='open'&&!opener)return null;
- eligible.sort((a,b)=>Math.abs(a.stack-stackBB)-Math.abs(b.stack-stackBB)||Number(!!b.players)-Number(!!a.players));
+ eligible.sort((a,b)=>Math.abs(a.stack-stackBB)-Math.abs(b.stack-stackBB)||Number(!!b.players)-Number(!!a.players)||Number(!!b.villain)-Number(!!a.villain));
  const chart=eligible[0];if(!chart||Math.abs(chart.stack-stackBB)>Math.max(3,chart.stack*.5))return null;
  const same=eligible.filter(x=>x.id.replace(/MTT_\\d+_GTO/,'MTT_STACK_GTO')===chart.id.replace(/MTT_\\d+_GTO/,'MTT_STACK_GTO'));const low=same.filter(x=>x.stack<=stackBB).sort((a,b)=>b.stack-a.stack)[0],high=same.filter(x=>x.stack>=stackBB).sort((a,b)=>a.stack-b.stack)[0];const interpolate=!!low&&!!high&&low.stack!==high.stack&&high.stack/low.stack<=2.5;const w=interpolate?(stackBB-low.stack)/(high.stack-low.stack):0;const f=k=>interpolate?aiBuiltinFrequency(low.range[k],hand)*(1-w)+aiBuiltinFrequency(high.range[k],hand)*w:aiBuiltinFrequency(chart.range[k],hand);const raise=f('raise'),call=f('call');
  const fold=Math.max(0,1-raise-call),mix={raise,call,fold},entries=Object.entries(mix).sort((a,b)=>b[1]-a[1]);
@@ -219,7 +219,7 @@ function aiPreflopAdvice(o){
  const h=db.hand,me=db.settings.hero;if(!h||!o||h.street!==0||h.hero.length!==2||db.selected!==me)return null;
  const pos=position(me),range=AI_RANGE_TABLE[pos]||AI_RANGE_TABLE.MP,hand=aiRangeHand(h.hero),bb=aiBlindAt(h.level)[1],paid=h.players[me]?.paid||0,stack=db.game.stacks[me]||0,effBB=(paid+stack)/Math.max(1,bb),need=o.call||0;
  const prior=h.logs.filter(x=>x.street===0&&x.seat!==me&&['레이즈','올인'].includes(x.type)&&x.paid>bb),raises=prior.length,opener=raises?position(prior[0].seat):null;
- const spot=raises===0?'open':raises===1?'vs_open':raises===2?'vs_3bet':'vs_4bet';const solver=aiSolverAdvice(pos,spot,effBB,hand,opener,bb,paid,stack,need,h);if(solver)return solver;const builtin=aiBuiltinSolverAdvice(pos,spot,effBB,hand,opener,bb,paid,stack,need,h);if(builtin)return builtin;
+ const limpers=h.logs.some(x=>x.street===0&&x.seat!==me&&x.type==='콜'&&x.paid===bb);const spot=raises===0?(limpers?'vs_limp':'open'):raises===1?'vs_open':raises===2?'vs_3bet':'vs_4bet';const solver=aiSolverAdvice(pos,spot,effBB,hand,opener,bb,paid,stack,need,h);if(solver)return solver;const builtin=aiBuiltinSolverAdvice(pos,spot,effBB,hand,opener,bb,paid,stack,need,h);if(builtin)return builtin;
  const [openRange,valueRange,bluffRange,defendRange]=range,opening=aiRangeHas(openRange,hand),value=aiRangeHas(valueRange,hand),bluff=aiRangeHas(bluffRange,hand),defend=aiRangeHas(defendRange,hand);
  const sizing=raiseSizing(),max=paid+stack,min=sizing?.minimum||bb,ip=['BTN','CO','HJ'].includes(pos),mult=raises>=2?2.25:raises===1?(ip?3:3.5):pos==='SB'?3:ip?2.2:2.5;
  const total=Math.min(max,Math.max(min,Math.round((raises?h.target:bb)*mult/bb)*bb)),canRaise=!!sizing?.canRaise&&total>h.target&&total>paid;
@@ -241,7 +241,7 @@ function aiPreflopAdvice(o){
  if(need===0)return result('체크 우선','체크',0,'무료 체크가 가능합니다.');
  return result('프리플랍 폴드 우선','폴드',0,raises>=2?'4벳 이상 강한 액션에 대한 방어 레인지 밖입니다.':'상대 오픈 방어 레인지 밖입니다.');
 }
-const COACH_ENGINE_VERSION='coach-v157';
+const COACH_ENGINE_VERSION='coach-v158';
 function coachRecordSource(advice){return advice?.solverSource||'근사·휴리스틱'}
 function coachFinalize(advice,o){
  if(!advice||advice.decision||!o||!db.hand||db.selected!==db.settings.hero)return advice;
@@ -390,7 +390,7 @@ async function aiFlush(){if(aiFlushTimer!==null){clearTimeout(aiFlushTimer);aiFl
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&aiDbReady)aiFlush()});
 window.addEventListener('pagehide',()=>{if(aiDbReady)aiFlush()});
 async function aiDbInit(){try{aiDb=await aiDbOpen();const [savedGame,savedAudit]=await Promise.all([aiDbRead('game'),aiDbRead('audit')]);if(savedGame!==undefined&&savedGame!==null)db={...initial(),...savedGame};else await aiDbWrite('game',db);if(Array.isArray(savedAudit))aiAudit=savedAudit;else await aiDbWrite('audit',aiAudit);aiDbReady=true;try{localStorage.removeItem(KEY);localStorage.removeItem(AI_AUDIT_KEY)}catch(e){console.warn('Legacy cleanup',e)}}catch(e){aiDbFailed=true;console.warn('IndexedDB initialization failed',e)}render()}
-function aiAuditHand(h,results){if(db.mode!=='ai'||!h)return;const seats=S(),cards=Object.fromEntries(seats.map(i=>[i,[...(aiHoles[i]||[])]])),start=Object.fromEntries(seats.map(i=>[i,(db.game.stacks[i]||0)+(h.players[i]?.total||0)-(results||[]).reduce((n,p)=>n+(p.payouts?.[i]||0),0)])),end={...db.game.stacks},errors=[],deck=[...Object.values(cards).flat(),...h.board];if(new Set(deck).size!==deck.length)errors.push('카드 중복');const totalBefore=Object.values(start).reduce((a,b)=>a+b,0),totalAfter=Object.values(end).reduce((a,b)=>a+b,0);if(totalBefore!==totalAfter)errors.push('전체 칩 합계 불일치 '+totalBefore+' / '+totalAfter);const contributions=seats.reduce((n,i)=>n+(h.players[i]?.total||0),0),pots=(results||[]).reduce((n,p)=>n+p.amount,0);if(contributions!==pots)errors.push('팟 합계 불일치 '+contributions+' / '+pots);if(seats.some(i=>end[i]<0))errors.push('음수 스택');const entry={version:5,coachingEngineVersion:COACH_ENGINE_VERSION,coaching:JSON.parse(JSON.stringify(h.aiCoaching||[])),at:new Date().toISOString(),handNo:db.game.handNo,level:h.level,blinds:aiBlindAt(h.level),autoActions:JSON.parse(JSON.stringify(h.aiCoachAutoActions||[])),dealer:h.dealer,heroSeat:db.settings.hero,players:seats.map(i=>({seat:i,name:db.game.names[i],cards:cards[i],startingStack:start[i],endingStack:end[i],contributed:h.players[i]?.total||0,fold:!!h.players[i]?.fold,allin:!!h.players[i]?.allin})),board:[...h.board],actions:JSON.parse(JSON.stringify(h.logs||[])),results:JSON.parse(JSON.stringify(results||[])),winners:[...(h.winners||[])],checks:{totalBefore,totalAfter,contributions,pots,errors}};aiAudit.push(entry);aiAuditSave()}
+function aiAuditHand(h,results){if(db.mode!=='ai'||!h)return;const seats=S(),cards=Object.fromEntries(seats.map(i=>[i,[...(aiHoles[i]||[])]])),start=Object.fromEntries(seats.map(i=>[i,(db.game.stacks[i]||0)+(h.players[i]?.total||0)-(results||[]).reduce((n,p)=>n+(p.payouts?.[i]||0),0)])),end={...db.game.stacks},errors=[],deck=[...Object.values(cards).flat(),...h.board];if(new Set(deck).size!==deck.length)errors.push('카드 중복');const totalBefore=Object.values(start).reduce((a,b)=>a+b,0),totalAfter=Object.values(end).reduce((a,b)=>a+b,0);if(totalBefore!==totalAfter)errors.push('전체 칩 합계 불일치 '+totalBefore+' / '+totalAfter);const contributions=seats.reduce((n,i)=>n+(h.players[i]?.total||0),0),pots=(results||[]).reduce((n,p)=>n+p.amount,0);if(contributions!==pots)errors.push('팟 합계 불일치 '+contributions+' / '+pots);if(seats.some(i=>end[i]<0))errors.push('음수 스택');const entry={version:5,coachingEngineVersion:COACH_ENGINE_VERSION,coaching:JSON.parse(JSON.stringify(h.aiCoaching||[])),at:new Date().toISOString(),handNo:db.game.handNo,level:h.level,blinds:aiBlindAt(h.level),autoActions:JSON.parse(JSON.stringify(h.aiCoachAutoActions||[])),botDecisions:JSON.parse(JSON.stringify(h.aiBotDecisions||[])),dealer:h.dealer,heroSeat:db.settings.hero,players:seats.map(i=>({seat:i,name:db.game.names[i],cards:cards[i],startingStack:start[i],endingStack:end[i],contributed:h.players[i]?.total||0,fold:!!h.players[i]?.fold,allin:!!h.players[i]?.allin})),board:[...h.board],actions:JSON.parse(JSON.stringify(h.logs||[])),results:JSON.parse(JSON.stringify(results||[])),winners:[...(h.winners||[])],checks:{totalBefore,totalAfter,contributions,pots,errors}};aiAudit.push(entry);aiAuditSave()}
 function aiAuditExport(){const blob=new Blob([JSON.stringify({format:'POKER_LIVE_COACH_AI_AUDIT',version:1,exportedAt:new Date().toISOString(),hands:aiAudit},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ai-tournament-audit-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
 function aiAuditClear(){if(!confirm('저장된 AI 토너먼트 검증 기록 '+aiAudit.length+'핸드를 모두 삭제할까요?'))return;aiAudit=[];aiAuditSave();render()}
 async function aiDeleteOldRecords(){
@@ -437,6 +437,28 @@ function aiNextHand(){if(aiResultAdvanceTimer!==null){clearTimeout(aiResultAdvan
 
 const aiOldAct=act;
 act=function(i,type,amount){if(db.mode==='ai'&&i!==db.selected)return;const h=db.hand;aiOldAct(i,type,amount);if(db.mode==='ai'&&h&&db.hand===h&&S().filter(j=>!h.players[j].fold).length===1)aiFinish()};
+function aiBotChartDecision(i,cards,h,bb,need,stack,style){
+ if(h.street!==0||cards.length!==2)return null;
+ const players=S().filter(j=>db.game.stacks[j]>0||h.players[j]?.total>0).length;
+ if(players<6||players===7||players>9)return null;
+ const pos=position(i),sourcePos={'UTG+1':'UTG1','UTG+2':'UTG2'}[pos]||pos;
+ const raises=h.logs.filter(x=>x.street===0&&x.seat!==i&&['레이즈','올인'].includes(x.type)&&x.paid>bb);
+ const limped=h.logs.some(x=>x.street===0&&x.seat!==i&&x.type==='콜'&&x.paid===bb);
+ if(!raises.length&&limped)return null;
+ const scenario=raises.length===0?'open':raises.length===1?'vs-raise':raises.length===2?'vs-3bet':'vs-4bet';
+ const opener=raises.length?({'UTG+1':'UTG1','UTG+2':'UTG2'}[position(raises[0].seat)]||position(raises[0].seat)):null;
+ const effectiveBB=(stack+(h.players[i]?.paid||0))/Math.max(1,bb);
+ const eligible=AI_BUILTIN_SOLVER.filter(x=>x.scenario===scenario&&x.hero===sourcePos&&(!x.villain||x.villain===opener)&&(!x.players||x.players===players));
+ eligible.sort((a,b)=>Math.abs(a.stack-effectiveBB)-Math.abs(b.stack-effectiveBB)||Number(!!b.players)-Number(!!a.players)||Number(!!b.villain)-Number(!!a.villain));
+ const chart=eligible[0];if(!chart||Math.abs(chart.stack-effectiveBB)>Math.max(3,chart.stack*.5))return null;
+ const hand=aiRangeHand(cards),raise=aiBuiltinFrequency(chart.range.raise,hand),call=aiBuiltinFrequency(chart.range.call,hand);
+ const fold=Math.max(0,1-raise-call),bias=Math.max(-.1,Math.min(.1,style.looseness||0));
+ const weights=[Math.max(0,fold-bias),Math.max(0,call+bias*.5),Math.max(0,raise+bias*.5)];
+ const sum=weights.reduce((a,b)=>a+b,0);let roll=Math.random()*sum;
+ const chosen=['폴드','콜','레이즈'].find((_,k)=>(roll-=weights[k])<=0)||'폴드';
+ return {chosen,chart:chart.id,hand,scenario,raise,call,fold};
+}
+
 function aiCoachAutoAction(h){if(db.mode!=='ai'||db.page!=='live'||db.hand!==h||db.selected!==db.settings.hero||!db.aiCoachAuto)return;const me=db.settings.hero,p=h.players[me],stack=db.game.stacks[me];if(!p||p.fold||p.allin||stack<=0)return;const o=oddsInfo(),advice=coachFinalize(actionAdvice(o),o);if(!o||!advice)return;const adviceKey=[h.street,h.logs.length,h.board.join(','),h.target,h.pot].join('|');const recorded=h.aiCoaching?.findLast(x=>x.key===adviceKey);const title=(recorded?.recommendation||advice.title||''),need=o.call||0,bb=aiBlindAt(h.level)[1];let type=need?'콜':'체크',amount=0;const fold=title.includes('폴드 우세');const preDecision=advice.decision;const value=title.includes('밸류')||title.includes('세미블러프');if(preDecision){type=preDecision;amount=preDecision==='레이즈'?advice.amount||0:0;if((type==='레이즈'||type==='베팅')&&amount<=h.target)type=need?'콜':'체크'}else if(need&&fold)type='폴드';else if(!need&&value){const proposed=Math.ceil(Math.max(bb,h.pot*.35)/Math.max(1,bb))*bb;const min=h.target>0?h.target+bb:bb;amount=Math.min(p.paid+stack,Math.max(min,proposed));if(amount>h.target&&amount>p.paid)type=h.target>0?'레이즈':'베팅'}if(need>=stack&&type==='콜')type='올인';h.aiCoachAutoActions??=[];h.aiCoachAutoActions.push({at:new Date().toISOString(),street:h.street,actionIndex:h.logs.length,recommendation:title,recommendedDecision:advice.decision||null,recommendedAmount:advice.amount||0,solverSource:advice.solverSource||null,type,amount,decisionMatch:advice.decision?(type===advice.decision||advice.decision==='콜'&&type==='올인'&&need>=stack):null,amountMatch:advice.decision==='레이즈'?amount===advice.amount:null});act(me,type,amount)}
 const aiOldRender=render;let aiPending=false,aiCoachPending=false;
 render=function(){if(db.mode==='ai')aiSanitizeHand(db.hand);if(db.mode==='ai'&&db.hand&&db.page==='live'&&db.hand.players[db.settings.hero]?.fold){const h=db.hand;const remaining=S().filter(i=>!h.players[i].fold);if(remaining.length===1){aiFinish();return}if(h.players[db.selected]?.fold||h.players[db.selected]?.allin){let n=db.selected;for(let k=0;k<db.settings.count;k++){n=next(n);if(!h.players[n].fold&&!h.players[n].allin){db.selected=n;break}}}}aiOldRender();if(db.mode==='ai'&&db.aiCoachAuto&&db.hand&&db.page==='live'&&db.selected===db.settings.hero&&!aiCoachPending){const heroHand=db.hand;aiCoachPending=true;setTimeout(()=>{aiCoachPending=false;aiCoachAutoAction(heroHand)},Math.max(0,Math.round(60/aiSpeed())));return}if(db.mode==='ai'&&db.hand&&db.page==='live'&&db.hand.street===3&&bettingClosed(db.hand)){const endedHand=db.hand;setTimeout(()=>{if(db.mode==='ai'&&db.hand===endedHand&&db.page==='live')openShowdown()},0);return}if(db.mode!=='ai'||!db.hand||db.page!=='live'||db.selected===db.settings.hero||aiPending)return;aiPending=true;const h=db.hand;setTimeout(()=>{aiPending=false;if(db.mode!=='ai'||db.hand!==h||db.page!=='live')return;const i=db.selected,p=h.players[i];if(!p||p.fold||p.allin)return;const need=Math.max(0,h.target-p.paid),stack=db.game.stacks[i],cards=aiHoles[i]||[],pot=h.pot,bb=aiBlindAt(h.level)[1];if(cards.length!==2)return;
@@ -477,6 +499,17 @@ const odds=need/(pot+need||1),pressure=need/Math.max(1,stack+need),canRaise=stac
 const minTotal=h.target>0?Math.max(h.target*2,h.target+bb):bb;
 const target=Math.min(p.paid+stack,Math.max(minTotal,Math.ceil((h.target+Math.max(bb*2,pot*.55))/bb)*bb));
 if(h.street===0){
+ const chartDecision=aiBotChartDecision(i,cards,h,bb,need,stack,aiStyle);
+ if(chartDecision){
+  const max=p.paid+stack,raiseTotal=Math.min(max,Math.max(h.target+bb,Math.ceil((h.target>bb?h.target*3:bb*2.5)/bb)*bb));
+  let chosen=chartDecision.chosen,amount=0;
+  if(chosen==='레이즈'&&raiseTotal>h.target&&stack>need){amount=raiseTotal}
+  else if(chosen==='레이즈')chosen=need?'콜':'체크';
+  if(chosen==='콜'&&need===0)chosen='체크';
+  if(chosen==='폴드'&&need===0)chosen='체크';
+  h.aiBotDecisions??=[];h.aiBotDecisions.push({seat:i,street:0,source:'MTT 원본 차트',chart:chartDecision.chart,hand:chartDecision.hand,scenario:chartDecision.scenario,frequencies:{raise:chartDecision.raise,call:chartDecision.call,fold:chartDecision.fold},decision:chosen,amount});
+  act(i,chosen,amount);return;
+ }
  const facingRaise=h.target>bb;
  const raiseBB=h.target/Math.max(1,bb);
  const callBB=need/Math.max(1,bb);

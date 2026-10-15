@@ -424,7 +424,7 @@ coach();
 .stack-big{font-variant-numeric:tabular-nums}
 </style>
 <div id="boardGate"><div><h2 id="gateTitle">플랍 카드 입력</h2><p id="gateProgress">보드를 선택하세요</p><button id="gateOpen">카드 선택</button><button id="gateConfirm">보드 입력 완료</button></div></div>
-<div class="panel" id="handHistoryPanel"><div class="line"><strong>📒 핸드 기록 · 코칭 복기</strong><span id="historyCount" class="muted">0핸드</span></div><div id="historyItems" class="muted">아직 기록이 없습니다.</div><div id="historyActions"><button id="exportHistory">기록 JSON 내보내기</button><button id="clearHistory">기록 초기화</button></div><div class="muted">기록은 이 기기의 브라우저에 저장됩니다. JSON을 공유하면 핸드별 코칭을 분석하고 개선할 수 있습니다.</div></div>
+<div class="panel" id="handHistoryPanel"><div class="line"><strong>📒 핸드 기록 · 코칭 복기</strong><span id="historyCount" class="muted">0핸드</span></div><div id="reviewSummary" class="review-summary">저장된 핸드의 내 액션을 분석합니다.</div><div id="historyItems" class="muted">아직 기록이 없습니다.</div><div id="historyActions"><button id="exportHistory">기록 JSON 내보내기</button><button id="clearHistory">기록 초기화</button></div><div class="muted">기록은 이 기기의 브라우저에 저장됩니다. JSON을 공유하면 핸드별 코칭을 분석하고 개선할 수 있습니다.</div></div>
 <script id="quick-v14-features">
 (function(){
 const storageKey='quick-coach-hands-v14';
@@ -447,7 +447,7 @@ const oldAdvance=advanceStreet;advanceStreet=function(){const before=table.stree
 const oldAction=action;action=function(type){if(gate.classList.contains('open')){alert('보드 카드를 먼저 선택하세요.');return}const actor=table.actor;if(!actor)return;const paid=table.players[actor]?.paid||0;const before=pot;const target=table.target;const beforeStreet=table.street;const beforeHero=[...hero],beforeBoard=[...board];const beforeRecommendation=document.getElementById('recommend').textContent;const beforeReason=document.getElementById('details').textContent;const beforeDue=Math.max(0,target-paid);oldAction(type);const accepted=table.players[actor]&&(pot!==before||type==='fold'&&table.players[actor].fold||type==='check'&&beforeDue===0||type==='call'&&beforeDue===0&&table.players[actor].acted);if(accepted){actions.push({street:streetNames[beforeStreet],seat:actor,type,added:pot-before,targetBefore:target,paidBefore:paid,potBefore:before,potAfter:pot,hero:beforeHero,board:beforeBoard,callRequired:beforeDue,heroAction:actor===table.hero,coaching:actor===table.hero?{recommendation:beforeRecommendation,reason:beforeReason}:null,at:new Date().toISOString()})}previousStreet=table.street};
 const oldBegin=beginHand;beginHand=function(rotate=false){oldBegin(rotate);if(table.street===0){gate.classList.remove('open');actions=[];previousHand=table.handNo;previousStreet=0}};
 const oldCoach=coach;coach=function(){oldCoach();const el=document.getElementById('stack');if(el&&document.activeElement!==el)el.value=commas(el.value)};
-function renderHistory(){document.getElementById('historyCount').textContent=records.length+'핸드';document.getElementById('historyItems').innerHTML=records.length?records.slice(-5).reverse().map(x=>'<div class="history-item"><strong>#'+x.handNo+' · '+x.result+'</strong> · '+x.hero.join(' ')+' / '+x.board.join(' ')+'<div>팟 '+fmt(x.pot)+' · 순손익 '+fmt(x.profit)+' · 스택 '+fmt(x.endingStack)+'</div><div>'+x.actions.length+'개 액션 · '+x.coaching.recommendation+'</div></div>').join(''):'아직 기록이 없습니다.'}
+function renderHistory(){if(typeof renderAutoReview==='function')renderAutoReview(records);document.getElementById('historyCount').textContent=records.length+'핸드';document.getElementById('historyItems').innerHTML=records.length?records.slice(-5).reverse().map(x=>'<div class="history-item"><strong>#'+x.handNo+' · '+x.result+'</strong> · '+x.hero.join(' ')+' / '+x.board.join(' ')+'<div>팟 '+fmt(x.pot)+' · 순손익 '+fmt(x.profit)+' · 스택 '+fmt(x.endingStack)+'</div><div>'+x.actions.length+'개 액션 · '+x.coaching.recommendation+'</div></div>').join(''):'아직 기록이 없습니다.'}
 const oldWin=document.getElementById('winHand').onclick;
 const oldLose=document.getElementById('loseHand').onclick;
 const oldSplit=document.getElementById('applySplit').onclick;
@@ -459,5 +459,60 @@ document.getElementById('exportHistory').onclick=()=>{const data={version:'quick
 document.getElementById('clearHistory').onclick=()=>{if(confirm('저장된 핸드 기록을 모두 삭제할까요?')){records=[];localStorage.removeItem(storageKey);renderHistory()}};
 const oldBoardOpen=openPick;openPick=function(m){oldBoardOpen(m);updateGate()};
 renderHistory();draw();
+})();
+</script><style id="quick-v18-review-css">
+.review-summary{background:#102b32;border:1px solid #246d73;border-radius:10px;padding:10px;margin:8px 0;font-size:12px;line-height:1.6}
+.review-summary .review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0}
+.review-summary .review-stat{background:#102031;border:1px solid #315063;border-radius:8px;padding:7px;text-align:center}
+.review-summary .review-stat b{display:block;font-size:17px;color:#67e7ae}
+.review-summary .review-alert{padding:7px 0;border-top:1px solid #315063}
+.review-summary .review-alert strong{color:#ffc778}
+</style>
+<script id="quick-v18-review">
+/* Descriptive review: flags disagreements and risky patterns; never infers strategy correctness from a win/loss. */
+(function(){
+const el=document.getElementById('reviewSummary');
+function safe(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function categorizeRecommendation(s){
+s=String(s||'');
+if(/폴드 우선|체크 \/ 폴드|폴드 \/ 상대/.test(s))return 'fold';
+if(/3벳|레이즈|오픈/.test(s))return 'raise';
+if(/콜/.test(s))return 'call';
+if(/체크/.test(s))return 'check';
+if(/베팅/.test(s))return 'bet';
+return null;
+}
+function categorizeAction(t){return ({fold:'fold',check:'check',call:'call',raise:'raise',allin:'raise'})[t]||null}
+function evaluateRecords(rows){
+let hands=rows.length,heroActions=0,tracked=0,aligned=0,disagree=0,folds=0,calls=0,raises=0,checks=0;
+const flags=[];
+for(const hand of rows){
+ const aa=Array.isArray(hand.actions)?hand.actions.filter(a=>a&&a.heroAction):[];
+ for(const a of aa){
+  heroActions++;
+  const actual=categorizeAction(a.type);
+  if(actual==='fold')folds++;if(actual==='call')calls++;if(actual==='raise')raises++;if(actual==='check')checks++;
+  const rec=a.coaching?.recommendation||'';
+  const expected=categorizeRecommendation(rec);
+  if(!expected)continue;
+  tracked++;
+  const isAligned=actual===expected||(expected==='bet'&&actual==='raise')||(expected==='call'&&actual==='check'&&Number(a.callRequired)===0);
+  if(isAligned)aligned++;else{
+   disagree++;
+   if(flags.length<12)flags.push({hand:hand.handNo,street:a.street,actual,expected,rec,call:a.callRequired||0,pot:a.potBefore||0});
+  }
+ }
+}
+return {hands,heroActions,tracked,aligned,disagree,folds,calls,raises,checks,flags};
+}
+window.renderAutoReview=function(rows){
+ const d=evaluateRecords(rows||[]);
+ if(!d.hands){el.innerHTML='<strong>🧠 자동 복기 대기</strong><div class="muted">핸드 종료 후 승패 정산을 하면 내 액션과 당시 코칭을 비교합니다.</div>';return}
+ const rate=d.tracked?(100*d.aligned/d.tracked).toFixed(0)+'%':'기록 없음';
+ const flagText=d.flags.slice(-4).map(f=>'<div class="review-alert"><strong>#'+safe(f.hand)+' '+safe(f.street)+'</strong> · 실제 '+safe(f.actual)+' / 추천 '+safe(f.rec)+'<div class="muted">당시 팟 '+fmt(f.pot)+' · 콜 필요 '+fmt(f.call)+' · 추천과 다른 선택이므로 복기 대상</div></div>').join('');
+ el.innerHTML='<strong>🧠 자동 핸드 복기</strong><div class="review-grid"><div class="review-stat"><b>'+d.hands+'</b>핸드</div><div class="review-stat"><b>'+d.heroActions+'</b>내 액션</div><div class="review-stat"><b>'+rate+'</b>추천 일치율</div></div><div>폴드 '+d.folds+' · 콜 '+d.calls+' · 레이즈/올인 '+d.raises+' · 체크 '+d.checks+'</div><div class="muted">추천 비교 '+d.tracked+'회 · 다른 선택 '+d.disagree+'회. 추천과 다르다고 잘못된 플레이인 것은 아닙니다.</div>'+flagText+'<div class="muted" style="margin-top:7px">승패는 전략의 정답을 증명하지 않습니다. 상대 카드·레인지·ICM 정보가 없는 판단은 복기 후보로만 표시합니다.</div>';
+};
+const raw=localStorage.getItem('quick-coach-hands-v14');
+try{window.renderAutoReview(raw?JSON.parse(raw):[])}catch(e){el.textContent='복기 기록을 읽을 수 없습니다. JSON 내보내기로 백업해 주세요.'}
 })();
 </script></body></html>

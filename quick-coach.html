@@ -194,4 +194,28 @@ document.getElementById('reset').onclick=()=>{if(confirm('새 핸드를 시작�
 quickBlindLevel=1;quickPendingBlinds=null;quickBlindNotice();
 }));
 quickBlindNotice();
+</script><style id="picked-card-v9">
+#suits button.used-card{filter:grayscale(1);opacity:.27;background:#242b37!important;color:#737d8b!important;border-color:#3a404b!important;cursor:not-allowed}
+#suits button:not(.used-card){opacity:1}
+</style><script id="picked-card-v9-script">
+(function(){
+function refreshUsedCards(){
+const used=new Set([...hero,...board]);
+document.querySelectorAll('#suits button').forEach((btn,i)=>{
+const suit=Object.keys(suitSymbols)[i];
+const taken=used.has(rank+suit);
+btn.classList.toggle('used-card',taken);
+btn.disabled=taken;
+btn.title=taken?'이미 선택한 카드':'';
+});
+}
+const originalOpenPick=openPick;
+openPick=function(m){originalOpenPick(m);refreshUsedCards()};
+const originalRenderRanks=renderRanks;
+renderRanks=function(){originalRenderRanks();refreshUsedCards()};
+const originalDraw=draw;
+draw=function(){originalDraw();refreshUsedCards()};
+document.querySelectorAll('#ranks button').forEach(btn=>btn.addEventListener('click',refreshUsedCards));
+refreshUsedCards();
+})();
 </script></body></html>

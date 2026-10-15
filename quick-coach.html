@@ -122,6 +122,23 @@ if(board.length<3){
  if(actualCall===0&&score[0]===1&&realOpps>=3){rec='체크 우선';reason='멀티웨이 '+realOpps+'명 상대의 원페어는 과도한 밸류 베팅을 피하세요.'}
  if(actualCall>0&&shared&&board.length===5&&pressure>15){rec='폴드 / 상대 확인';reason='리버 보드 공용 족보는 개인 카드의 우위가 제한적. 블러프 빈도를 확인하세요.'}
 }
+/* v22: prioritize made-hand strength over speculative draw rules. */
+if(board.length>=3){
+ const heroRanks=hero.map(c=>rankOrder.indexOf(c[0])+2);
+ const boardRanks=board.map(c=>rankOrder.indexOf(c[0])+2);
+ const boardPairRanks=boardRanks.filter((v,i)=>boardRanks.indexOf(v)!==i);
+ const tripsWithHero=score&&score[0]===3&&boardPairRanks.some(v=>heroRanks.includes(v));
+ const strongMade=score&&score[0]>=4&&!shared;
+ const strongTrips=tripsWithHero&&Math.max(...heroRanks)>=12;
+ if(actualCall>0&&(strongMade||strongTrips)){
+  rec=strongMade?'콜 / 밸류 레이즈 검토':'콜 우선 / 레이즈 검토';
+  reason=strongMade?'강한 메이드 핸드. 상대의 더 강한 족보와 보드 텍스처를 확인하면서 밸류를 확보하세요.':'보드 페어와 내 카드가 결합된 강한 트립스. 키커와 상대 풀하우스 가능성을 확인하되 무조건 폴드하지 마세요.';
+ }
+ if(actualCall===0&&(strongMade||strongTrips)){
+  rec='밸류 베팅 검토';
+  reason='강한 메이드 핸드. 상대가 콜할 수 있는 약한 핸드의 범위를 고려해 베팅 크기를 정하세요.';
+ }
+}
 if(style==='tight'&&call>0)reason+=' 타이트 상대의 강한 베팅은 더 보수적으로 보세요.';
 if(style==='station'&&call===0)reason+=' 콜스테이션 상대에게 무리한 블러프를 줄이세요.';
 const sizeBox=document.getElementById('betSizing');

@@ -21,7 +21,7 @@
 #settlement .settle-title{font-size:16px;font-weight:800;color:#6ee7b7}
 #anteTotal{min-height:30px}
 </style></head><body>
-<header class="line head"><h1>♠ POKER QUICK COACH</h1><div class="line"><button class="mini" id="blindUp">⬆ 블라인드 UP</button><button class="mini" id="reset">⟳ 초기화</button></div></header><div class="muted" id="blindNotice" style="padding:2px 6px">블라인드 100 / 200 · 레벨 1</div>
+<header class="line head"><h1>♠ POKER QUICK COACH</h1><div class="line"><button class="mini" id="blindDown">▼ DOWN</button><button class="mini" id="blindUp">▲ UP</button><button class="mini" id="reset">⟳ 초기화</button></div></header><div class="muted" id="blindNotice" style="padding:2px 6px">블라인드 100 / 200 · 레벨 1</div>
 <div class="panel"><div class="settings"><div><label>블라인드 SB</label><input class="field" id="sb" type="number" min="0" value="100"></div><div><label>BB</label><input class="field" id="bb" type="number" min="1" value="200"></div><div><label>내 스택</label><input class="field" id="stack" type="number" min="0" value="30000"></div><div><label>내 위치</label><select class="field" id="pos"><option>BTN</option><option>CO</option><option>HJ</option><option>LJ</option><option>UTG</option><option>MP</option><option>SB</option><option>BB</option></select></div></div><div class="line" style="margin-top:8px;gap:7px"><div style="flex:1"><label>앤티 방식</label><select class="field" id="anteMode"><option value="none">앤티 없음</option><option value="bb">BB 앤티</option><option value="each">전원 앤티</option></select></div><div style="flex:1"><label>앤티 금액</label><input class="field" id="ante" type="number" min="0" value="0"></div><div style="flex:1"><label>시작 팟 앤티 합계</label><div class="field" id="anteTotal">0</div></div></div><div class="hidden"><select id="style"><option value="unknown">정보 없음</option><option value="tight">타이트</option><option value="loose">루즈</option><option value="station">콜스테이션</option></select></div></div>
 <div class="panel"><div class="cardpanel"><div class="hole"><div class="line"><strong>내 핸드</strong><button id="heroBtn">선택</button></div><div class="cards" id="heroCards"></div></div><div class="board"><div class="line"><strong>보드 카드</strong><button id="boardBtn">추가</button></div><div class="cards" id="boardCards"></div></div></div><div class="hidden"><button id="flop">플랍</button><button id="turn">턴</button><button id="river">리버</button><button id="boardClear">보드 지움</button></div></div>
 <div class="panel money"><div class="potline"><div><div class="muted">현재 팟</div><div class="big" id="pot">300</div></div><div><div class="muted">베팅 / 레이즈 금액</div><div class="big" id="draft">0</div></div></div><div class="grid" id="chips"></div><div class="money-actions"><button id="actFold">폴드</button><button id="actCheck">체크</button><button id="actCall">콜</button><button id="actRaise">레이즈</button><button id="actAllin">올인</button></div><div class="quick-tools"><button id="undo">↶ 취소</button><button id="clear">입력 지움</button><button class="primary" id="add">팟 추가</button><button id="adjust">팟 수정</button></div><div class="smallnote" id="betHint">칩 금액 → 바로 아래 액션 버튼 · 콜은 자동 금액</div></div>
@@ -297,5 +297,43 @@ document.getElementById('reset').onclick=()=>{if(confirm('새 핸드를 시작�
 document.getElementById('anteMode').addEventListener('change',()=>{updateAnteTotal();if(confirm('앤티 변경을 현재 핸드에 적용하려면 핸드를 다시 시작해야 합니다. 다시 시작할까요?')){finished=false;beginHand()}});
 document.getElementById('ante').addEventListener('change',()=>{updateAnteTotal();if(confirm('앤티 변경을 현재 핸드에 적용하려면 핸드를 다시 시작해야 합니다. 다시 시작할까요?')){finished=false;beginHand()}});
 handStartingStack=num('stack');handAntePaid=heroAnte();updateAnteTotal();
+})();
+</script><style id="blind-v11-css">#blindDown{background:#26384e;border-color:#4b6685;white-space:nowrap;font-size:11px}#blindUp{background:#185c98;border-color:#4289d0;white-space:nowrap;font-size:11px}.head .line{gap:4px}.head .line button{padding:5px 6px}#blindNotice{font-size:11px}</style>
+<script id="blind-v11">
+/* Exact user-defined satellite blind structure; level changes take effect next hand. */
+(function(){
+const levels=[[100,200],[200,400],[300,600],[400,800],[500,1000],[600,1200],[800,1600],[1000,2000],[1500,3000],[2000,4000],[3000,6000],[4000,8000],[5000,10000],[6000,12000],[7000,14000],[8000,16000],[9000,18000],[10000,20000],[15000,30000],[20000,40000]];
+quickBlindLevel=1;
+quickPendingBlinds=null;
+const label=document.getElementById('blindNotice');
+function levelDescription(l){const pair=levels[l-1];return '레벨 '+l+' · '+fmt(pair[0])+'/'+fmt(pair[1])+(l>=3?' · BB 앤티 '+fmt(pair[1]):' · 앤티 없음')+(l===10?' · 종료 후 브레이크/워싱':l===18?' · 종료 후 워싱':'')}
+function showLevel(){
+const current=quickPendingBlinds?'다음 핸드: ':'현재: ';
+label.textContent=current+levelDescription(quickBlindLevel);
+document.getElementById('blindUp').disabled=quickBlindLevel>=levels.length;
+document.getElementById('blindDown').disabled=quickBlindLevel<=1;
+}
+function chooseLevel(delta){
+const next=Math.max(1,Math.min(levels.length,quickBlindLevel+delta));
+if(next===quickBlindLevel)return;
+quickBlindLevel=next;
+quickPendingBlinds=[...levels[next-1]];
+showLevel();
+}
+document.getElementById('blindUp').onclick=()=>chooseLevel(1);
+document.getElementById('blindDown').onclick=()=>chooseLevel(-1);
+const beforeBegin=beginHand;
+beginHand=function(rotate=false){
+if(quickPendingBlinds){
+const level=quickBlindLevel;
+document.getElementById('anteMode').value=level>=3?'bb':'none';
+document.getElementById('ante').value=level>=3?levels[level-1][1]:0;
+}
+beforeBegin(rotate);
+showLevel();
+};
+const originalManualBlind=quickBlindNotice;
+quickBlindNotice=function(){showLevel()};
+showLevel();
 })();
 </script></body></html>

@@ -364,4 +364,50 @@ coach=function(){syncCoachingContext();priorCoach()};
 syncCoachingContext();
 coach();
 })();
+</script>
+<style id="quick-v14-style">
+#boardGate{position:fixed;inset:0;background:#050c18ee;z-index:20;display:none;align-items:center;justify-content:center;padding:16px}
+#boardGate.open{display:flex}#boardGate>div{background:#11263e;border:1px solid #3b89be;border-radius:16px;padding:18px;width:min(100%,420px)}
+#boardGate button{width:100%;background:#246fb5;margin-top:9px;min-height:44px}
+#handHistoryPanel .history-item{border-top:1px solid #29435c;padding:9px 0;font-size:11px;line-height:1.6}
+#handHistoryPanel .history-item strong{color:#5ee8b0}#historyActions{display:flex;gap:6px;margin-top:8px}#historyActions button{flex:1}
+.stack-big{font-variant-numeric:tabular-nums}
+</style>
+<div id="boardGate"><div><h2 id="gateTitle">플랍 카드 입력</h2><p id="gateProgress">보드를 선택하세요</p><button id="gateOpen">카드 선택</button><button id="gateConfirm">보드 입력 완료</button></div></div>
+<div class="panel" id="handHistoryPanel"><div class="line"><strong>📒 핸드 기록 · 코칭 복기</strong><span id="historyCount" class="muted">0핸드</span></div><div id="historyItems" class="muted">아직 기록이 없습니다.</div><div id="historyActions"><button id="exportHistory">기록 JSON 내보내기</button><button id="clearHistory">기록 초기화</button></div><div class="muted">기록은 이 기기의 브라우저에 저장됩니다. JSON을 공유하면 핸드별 코칭을 분석하고 개선할 수 있습니다.</div></div>
+<script id="quick-v14-features">
+(function(){
+const storageKey='quick-coach-hands-v14';
+let records=[];try{records=JSON.parse(localStorage.getItem(storageKey)||'[]');if(!Array.isArray(records))records=[]}catch(e){records=[]}
+let actions=[],previousHand=table.handNo,previousStreet=table.street;
+const numericFields=['stack','call','splitAmount'];
+function clean(v){return String(v??'').replace(/[^0-9]/g,'')}
+function commas(v){const n=clean(v);return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,','):'0'}
+const oldNum=num;num=function(id){if(numericFields.includes(id)){const el=document.getElementById(id);return el?Number(clean(el.value)||0):0}return oldNum(id)};
+numericFields.forEach(id=>{const el=document.getElementById(id);if(!el)return;el.type='text';el.inputMode='numeric';el.addEventListener('focus',()=>{el.value=clean(el.value);el.select()});el.addEventListener('blur',()=>{el.value=commas(el.value)});el.addEventListener('input',()=>{el.value=clean(el.value)});el.value=commas(el.value)});
+const oldDraw=draw;draw=function(){oldDraw();numericFields.forEach(id=>{const el=document.getElementById(id);if(el&&document.activeElement!==el)el.value=commas(el.value)});updateGate()};
+const oldRender=renderTable;renderTable=function(){oldRender();const c=document.getElementById('call');if(document.activeElement!==c)c.value=commas(c.value)};
+const gate=document.getElementById('boardGate');
+function needed(){return [0,3,4,5][table.street]}
+function updateGate(){if(!gate.classList.contains('open'))return;document.getElementById('gateTitle').textContent=['','플랍 3장 입력','턴 1장 입력','리버 1장 입력'][table.street];document.getElementById('gateProgress').textContent='선택된 보드 '+board.length+' / '+needed()+'장';document.getElementById('gateConfirm').disabled=board.length<needed()}
+function showGate(){if(table.street===0||board.length>=needed()){gate.classList.remove('open');return}gate.classList.add('open');updateGate();openPick('board')}
+document.getElementById('gateOpen').onclick=()=>openPick('board');
+document.getElementById('gateConfirm').onclick=()=>{if(board.length<needed())return;gate.classList.remove('open')};
+const oldAdvance=advanceStreet;advanceStreet=function(){const before=table.street;oldAdvance();if(table.street!==before)showGate()};
+const oldAction=action;action=function(type){if(gate.classList.contains('open')){alert('보드 카드를 먼저 선택하세요.');return}const actor=table.actor;const paid=table.players[actor]?.paid||0;const before=pot;const target=table.target;oldAction(type);if(table.players[actor]&&pot!==before||type==='fold'||type==='check'){actions.push({street:streetNames[previousStreet]||streetNames[table.street],seat:actor,type,added:pot-before,targetBefore:target,paidBefore:paid,potAfter:pot,at:new Date().toISOString()})}previousStreet=table.street};
+const oldBegin=beginHand;beginHand=function(rotate=false){oldBegin(rotate);if(table.street===0){gate.classList.remove('open');actions=[];previousHand=table.handNo;previousStreet=0}};
+const oldCoach=coach;coach=function(){oldCoach();const el=document.getElementById('stack');if(el&&document.activeElement!==el)el.value=commas(el.value)};
+function renderHistory(){document.getElementById('historyCount').textContent=records.length+'핸드';document.getElementById('historyItems').innerHTML=records.length?records.slice(-5).reverse().map(x=>'<div class="history-item"><strong>#'+x.handNo+' · '+x.result+'</strong> · '+x.hero.join(' ')+' / '+x.board.join(' ')+'<div>팟 '+fmt(x.pot)+' · 순손익 '+fmt(x.profit)+' · 스택 '+fmt(x.endingStack)+'</div><div>'+x.actions.length+'개 액션 · '+x.coaching.recommendation+'</div></div>').join(''):'아직 기록이 없습니다.'}
+const oldWin=document.getElementById('winHand').onclick;
+const oldLose=document.getElementById('loseHand').onclick;
+const oldSplit=document.getElementById('applySplit').onclick;
+function record(result,received){const ending=num('stack');const heroSeat=table.hero;const p=table.players[heroSeat];const investment=(p?.total||0)+(document.getElementById('anteMode').value==='each'?Number(document.getElementById('ante').value)||0:document.getElementById('anteMode').value==='bb'&&positionBlinds()[1]===heroSeat?Number(document.getElementById('ante').value)||0:0);const row={id:Date.now(),at:new Date().toISOString(),handNo:table.handNo,level:quickBlindLevel,blinds:[num('sb'),num('bb')],heroSeat,dealer:table.dealer,players:table.count,hero:[...hero],board:[...board],pot,invested:investment,received,profit:received-investment,endingStack:ending,result,actions:[...actions],coaching:{recommendation:document.getElementById('recommend').textContent,details:document.getElementById('details').textContent}};records.push(row);if(records.length>1000)records=records.slice(-1000);try{localStorage.setItem(storageKey,JSON.stringify(records))}catch(e){alert('기기 저장 공간이 부족합니다. JSON 기록을 내보내 주세요.')}renderHistory()}
+document.getElementById('winHand').onclick=()=>{if(document.getElementById('settlement').classList.contains('hidden'))return;oldWin();record('승리',pot)};
+document.getElementById('loseHand').onclick=()=>{if(document.getElementById('settlement').classList.contains('hidden'))return;oldLose();record('패배',0)};
+document.getElementById('applySplit').onclick=()=>{if(document.getElementById('settlement').classList.contains('hidden'))return;const amount=num('splitAmount');oldSplit();if(document.getElementById('settlement').classList.contains('hidden'))record('분할',amount)};
+document.getElementById('exportHistory').onclick=()=>{const data={version:'quick-v14',exportedAt:new Date().toISOString(),hands:records};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='quick-coach-hands-'+new Date().toISOString().slice(0,10)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+document.getElementById('clearHistory').onclick=()=>{if(confirm('저장된 핸드 기록을 모두 삭제할까요?')){records=[];localStorage.removeItem(storageKey);renderHistory()}};
+const oldBoardOpen=openPick;openPick=function(m){oldBoardOpen(m);updateGate()};
+renderHistory();draw();
+})();
 </script></body></html>

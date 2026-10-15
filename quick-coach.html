@@ -139,6 +139,33 @@ if(board.length>=3){
   reason='강한 메이드 핸드. 상대가 콜할 수 있는 약한 핸드의 범위를 고려해 베팅 크기를 정하세요.';
  }
 }
+/* v23: wet-board protection, value sizing, and semibluff logic. */
+let wetBoardAdvice=null;
+if(board.length>=3){
+ const br=board.map(c=>rankOrder.indexOf(c[0])+2),suitCounts={};
+ board.forEach(c=>suitCounts[c[1]]=(suitCounts[c[1]]||0)+1);
+ const maxSuit=Math.max(...Object.values(suitCounts));
+ const vals=[...new Set(br)];if(vals.includes(14))vals.push(1);
+ let connected=0;
+ for(let start=1;start<=10;start++){const hits=[0,1,2,3,4].filter(x=>vals.includes(start+x)).length;connected=Math.max(connected,hits)}
+ const wet=maxSuit>=3||maxSuit===2&&connected>=2||connected>=3;
+ const madeCategory=score?.[0]||0;
+ const isValue=madeCategory>=2&&!shared||madeCategory===1&&!shared&&realOpps<=2;
+ const flushDraw=board.length<5&&[...hero,...board].some(c=>[...hero,...board].filter(x=>x[1]===c[1]).length===4&&hero.some(x=>x[1]===c[1]));
+ const semibluff=board.length<5&&madeCategory<=1&&(flushDraw||draws.some(x=>x.includes('스트레이트')));
+ if(actualCall===0&&wet&&isValue){
+  rec='보호 밸류 베팅 권장';
+  reason='플러시·스트레이트 드로우가 많은 보드. 체크로 무료 카드를 주기보다 상대의 드로우에 가격을 부과하세요. 이미 완성된 상위 족보 가능성도 확인.';
+  wetBoardAdvice={fraction:realOpps>=3?.65:.7,label:'드로우 방어 베팅'};
+ }else if(actualCall===0&&semibluff&&realOpps<=2){
+  rec='세미블러프 베팅 검토';
+  reason='드로우를 보유한 상황. 폴드 에퀴티와 맞췄을 때의 개선 가능성을 활용하되 상대의 콜 성향과 포지션을 확인하세요.';
+  wetBoardAdvice={fraction:.5,label:'세미블러프 베팅'};
+ }else if(actualCall>0&&wet&&isValue&&madeCategory>=2){
+  rec='콜 / 보호 레이즈 검토';
+  reason='드로우가 많은 보드에서 강한 메이드 핸드. 상대의 완성된 상위 족보를 배제할 수는 없으므로 무조건 레이즈하지 마세요.';
+ }
+}
 if(style==='tight'&&call>0)reason+=' 타이트 상대의 강한 베팅은 더 보수적으로 보세요.';
 if(style==='station'&&call===0)reason+=' 콜스테이션 상대에게 무리한 블러프를 줄이세요.';
 const sizeBox=document.getElementById('betSizing');
@@ -151,6 +178,7 @@ if(sizeBox){
  const remaining=Math.max(0,stack);
  const sizeTo=x=>fmt(Math.max(0,Math.round(x/Math.max(1,bb/2))*Math.max(1,bb/2)));
  let lines=[];
+ if(wetBoardAdvice&&due===0&&!pre)lines.push(wetBoardAdvice.label+': '+sizeTo(pot*wetBoardAdvice.fraction)+'칩 ('+Math.round(wetBoardAdvice.fraction*100)+'% 팟)');
  if(pre){
   if(due===0)lines.push('오픈 레이즈: 총 '+sizeTo(bb*2.2)+' ~ '+sizeTo(bb*3)+'칩 (2.2~3BB)');
   else{

@@ -73,6 +73,55 @@ else if(score[0]>=4&&!shared){rec='콜 / 레이즈 검토';reason='강한 족보
 else if(score[0]>=2&&!shared&&required<30&&opps<=2){rec='콜 후보';reason='상대 밸류 범위와 드로우 완성 여부 확인.'}
 else if(draws.length&&board.length<5&&required<=(draws.includes('플러시 드로우')?20:12)){rec='콜 후보';reason='드로우 확률과 추가 베팅 가능성은 별도 검토.'}
 else{rec='폴드 / 상대 확인';reason='핸드 강도와 현재 콜 가격만으로 확정 판단할 수 없습니다.'}
+/* v17: position-aware preflop, actual drawing odds, and bet pressure. */
+const activePlayers=typeof table!=='undefined'&&table.players?.length?table.players.filter(Boolean).filter(p=>!p.fold):[];
+const realOpps=Math.max(1,activePlayers.length-1);
+const actualPos=typeof table!=='undefined'&&table.players?.length?(()=>{
+ const n=table.count,d=table.dealer,h=table.hero,dist=(h-d+n)%n;
+ return dist===0?'BTN':dist===1?'SB':dist===2?'BB':dist===n-1?'CO':dist===n-2?'HJ':dist===3?'UTG':'MP';
+})():pos;
+const activeActor=typeof table!=='undefined'?table.players?.[table.actor]:null;
+const actualCall=activeActor&&table.actor===table.hero?Math.max(0,table.target-activeActor.paid):call;
+const facingRaise=typeof table!=='undefined'&&table.street===0&&table.target>num('bb');
+const premium=pair&&hi>=11||hi===14&&lo===13||hi===14&&lo===12&&suited;
+const broadway=hi>=11&&lo>=10;
+const playable=pair&&hi>=6||hi===14&&lo>=10||broadway||suited&&hi>=10&&lo>=8||suited&&gap<=2&&hi>=7;
+const early=['UTG','MP'].includes(actualPos);
+const late=['BTN','CO','HJ'].includes(actualPos);
+const pressure=actualCall>0?100*actualCall/(pot+actualCall):0;
+if(board.length<3){
+ if(actualCall===0){
+  if(premium||playable&&(late||!early&&hi>=11)){rec='오픈 레이즈 검토';reason='포지션 '+actualPos+' · '+(late?'후반 포지션의 넓은 오픈 범위':'선행 포지션은 타이트한 오픈 범위')+' · 일반적으로 2~3BB부터 상황에 맞게 조정.'}
+  else {rec='체크 / 폴드 우선';reason='포지션 '+actualPos+'에서 약한 핸드의 불필요한 참여를 줄입니다.'}
+ }else if(facingRaise){
+  if(premium){rec=eff<=20?'3벳 / 올인 검토':'3벳 밸류 검토';reason='상대 레이즈에 대응할 수 있는 강한 핸드. 상대 레인지와 유효 스택 확인.'}
+  else if(playable&&pressure<=23&&realOpps<=2&&!early){rec='콜 검토';reason='포지션 '+actualPos+' · 콜 가격 '+pressure.toFixed(1)+'%. 3벳 상대 범위가 강하면 폴드.'}
+  else {rec='폴드 우선';reason='상대 레이즈에 대한 방어 범위가 부족하거나 콜 가격이 높습니다.'}
+ }else if(premium){rec='아이솔레이션 레이즈 검토';reason='림퍼가 있다면 핸드 밸류를 보호하도록 레이즈 크기를 조정.'}
+ else if(playable&&pressure<=25){rec='콜 검토';reason='림프 팟의 저렴한 가격과 포지션을 고려. 과도한 멀티웨이는 주의.'}
+ else{rec='폴드 우선';reason='핸드 강도에 비해 콜 비용이 높습니다.'}
+}else{
+ let outs=0,drawKind='';
+ if(board.length<5){
+  const suitCounts={};[...hero,...board].forEach(c=>suitCounts[c[1]]=(suitCounts[c[1]]||0)+1);
+  if(Object.entries(suitCounts).some(([s,n])=>n===4&&hero.some(c=>c[1]===s))){outs=9;drawKind='플러시 드로우'}
+  const vals=[...new Set([...hero,...board].map(c=>rankOrder.indexOf(c[0])+2))];
+  if(vals.includes(14))vals.push(1);
+  let straightOuts=0;
+  for(let start=1;start<=10;start++){const missing=[0,1,2,3,4].map(k=>start+k).filter(v=>!vals.includes(v));if(missing.length===1)straightOuts=Math.max(straightOuts,missing[0]===start||missing[0]===start+4?4:8)}
+  if(straightOuts>outs){outs=straightOuts;drawKind=straightOuts===8?'양방향 스트레이트 드로우':'것샷 드로우'}
+ }
+ if(actualCall>0&&outs>0&&board.length<5&&score[0]<4){
+  const cardsToCome=board.length===3?2:1;
+  const chance=100*(1-Math.pow((47-outs)/47,cardsToCome));
+  const immediate=100*outs/47;
+  const relevant=cardsToCome===2?immediate:chance;
+  if(relevant>=pressure+2){rec='드로우 콜 검토';reason=drawKind+' · 추정 아웃츠 '+outs+'장 · 다음 카드 적중 약 '+immediate.toFixed(1)+'% · 필요 승률 '+pressure.toFixed(1)+'%. 상대 상위 드로우·역임플라이드 오즈 주의.'}
+  else if(score[0]<2){rec='폴드 우선';reason=drawKind+'이지만 다음 카드 적중 약 '+immediate.toFixed(1)+'% 대비 콜 가격 '+pressure.toFixed(1)+'%가 높음. 추가 수익 가능성은 별도 검토.'}
+ }
+ if(actualCall===0&&score[0]===1&&realOpps>=3){rec='체크 우선';reason='멀티웨이 '+realOpps+'명 상대의 원페어는 과도한 밸류 베팅을 피하세요.'}
+ if(actualCall>0&&shared&&board.length===5&&pressure>15){rec='폴드 / 상대 확인';reason='리버 보드 공용 족보는 개인 카드의 우위가 제한적. 블러프 빈도를 확인하세요.'}
+}
 if(style==='tight'&&call>0)reason+=' 타이트 상대의 강한 베팅은 더 보수적으로 보세요.';
 if(style==='station'&&call===0)reason+=' 콜스테이션 상대에게 무리한 블러프를 줄이세요.';
 $('recommend').textContent=rec;$('details').innerHTML='현재 족보: <b>'+made+'</b>'+(shared?' (보드 공용)':'')+'<br>콜 필요액: '+fmt(call)+' · 필요 승률: '+required.toFixed(1)+'% · 스택: '+eff.toFixed(1)+'BB<br>'+ (draws.length?draws.join(' / ')+'<br>':'')+reason+'<br><span class="muted">참고용 간이 규칙입니다. 실제 상대 레인지·ICM·폴드 에퀴티를 계산하지 않습니다.</span>'}

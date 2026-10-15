@@ -153,7 +153,23 @@ if(board.length>=3){
  const isValue=madeCategory>=2&&!shared||madeCategory===1&&!shared&&realOpps<=2;
  const flushDraw=board.length<5&&[...hero,...board].some(c=>[...hero,...board].filter(x=>x[1]===c[1]).length===4&&hero.some(x=>x[1]===c[1]));
  const semibluff=board.length<5&&madeCategory<=1&&(flushDraw||draws.some(x=>x.includes('스트레이트')));
- if(actualCall===0&&wet&&isValue){
+ const boardFlush=maxSuit>=3;
+ const boardPair=br.some((v,i)=>br.indexOf(v)!==i);
+ const straightMade=connected>=5;
+ const danger=(boardFlush?2:0)+(connected>=4?2:connected>=3?1:0)+(boardPair?1:0);
+ const vulnerableValue=isValue&&madeCategory>=2&&madeCategory<=3;
+ const premiumValue=madeCategory>=4&&!shared;
+ const opponentPressure=realOpps>=3;
+ if(actualCall===0&&wet&&isValue&&!(boardFlush&&madeCategory<=2)&&!(straightMade&&madeCategory<=3)){
+  const cautious=opponentPressure||danger>=3&&vulnerableValue;
+  rec=cautious?'밸류 베팅 / 체크 혼합':'보호 밸류 베팅 권장';
+  reason=cautious?'위험한 보드에서 상대의 완성된 플러시·스트레이트와 멀티웨이 레인지를 경계하세요. 강한 핸드라도 무조건 크게 베팅하지 않습니다.':'드로우가 많은 보드. 약한 메이드 핸드나 드로우에 가격을 부과하되 이미 완성된 상위 족보 가능성도 확인하세요.';
+  wetBoardAdvice={fraction:premiumValue?.65:cautious?.4:.65,label:cautious?'신중한 밸류 베팅':'드로우 방어 베팅'};
+ }else if(actualCall===0&&wet&&isValue){rec='체크 / 작은 베팅 검토';reason='보드에 플러시·스트레이트가 이미 완성될 수 있어 취약한 메이드 핸드로 큰 보호 베팅을 피합니다.';wetBoardAdvice={fraction:.25,label:'작은 탐색 베팅'};
+ }else if(actualCall===0&&semibluff&&realOpps<=2&&!boardFlush){rec='세미블러프 베팅 검토';reason='상대 폴드 가능성과 드로우 개선 확률을 함께 고려. 콜스테이션 상대에게는 체크 비중을 높이세요.';wetBoardAdvice={fraction:style==='station'?.25:.5,label:'세미블러프 베팅'};
+ }else if(actualCall>0&&wet&&isValue&&madeCategory>=2){rec=boardFlush&&madeCategory<=2?'콜 / 폴드 검토':'콜 / 보호 레이즈 검토';reason='상대 베팅 강도와 완성된 플러시·스트레이트 가능성을 확인하세요. 큰 베팅에 취약한 핸드로 자동 레이즈하지 않습니다.';}
+ /* v24 replaced v23 simplistic rules */
+ if(false){
   rec='보호 밸류 베팅 권장';
   reason='플러시·스트레이트 드로우가 많은 보드. 체크로 무료 카드를 주기보다 상대의 드로우에 가격을 부과하세요. 이미 완성된 상위 족보 가능성도 확인.';
   wetBoardAdvice={fraction:realOpps>=3?.65:.7,label:'드로우 방어 베팅'};
@@ -165,6 +181,7 @@ if(board.length>=3){
   rec='콜 / 보호 레이즈 검토';
   reason='드로우가 많은 보드에서 강한 메이드 핸드. 상대의 완성된 상위 족보를 배제할 수는 없으므로 무조건 레이즈하지 마세요.';
  }
+}
 }
 if(style==='tight'&&call>0)reason+=' 타이트 상대의 강한 베팅은 더 보수적으로 보세요.';
 if(style==='station'&&call===0)reason+=' 콜스테이션 상대에게 무리한 블러프를 줄이세요.';

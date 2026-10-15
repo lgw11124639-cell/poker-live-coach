@@ -5,8 +5,13 @@
 .money-actions>button{display:flex!important;justify-content:center!important;align-items:center!important;min-width:0!important;width:100%!important;min-height:45px!important;padding:6px 1px!important;font-size:12px!important;white-space:nowrap!important}
 .money-actions #actFold{background:#334154!important}.money-actions #actCheck{background:#1764ba!important}.money-actions #actCall{background:#13925b!important}.money-actions #actRaise{background:#c56a15!important}.money-actions #actAllin{background:#c82c3c!important}
 .money .quick-tools{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important}
+</style><style id="quick-v8-style">
+#blindUp{background:#185c98;border-color:#4289d0;white-space:nowrap;font-size:11px}
+#blindNotice{font-size:10px;color:#b2c8de}
+#turnPanel .status{color:#b2c8de}
+#nextStreet{display:none!important}
 </style></head><body>
-<header class="line head"><h1>♠ POKER QUICK COACH</h1><button class="mini" id="reset">⟳ 초기화</button></header>
+<header class="line head"><h1>♠ POKER QUICK COACH</h1><div class="line"><button class="mini" id="blindUp">⬆ 블라인드 UP</button><button class="mini" id="reset">⟳ 초기화</button></div></header><div class="muted" id="blindNotice" style="padding:2px 6px">블라인드 100 / 200 · 레벨 1</div>
 <div class="panel"><div class="settings"><div><label>블라인드 SB</label><input class="field" id="sb" type="number" min="0" value="100"></div><div><label>BB</label><input class="field" id="bb" type="number" min="1" value="200"></div><div><label>내 스택</label><input class="field" id="stack" type="number" min="0" value="30000"></div><div><label>내 위치</label><select class="field" id="pos"><option>BTN</option><option>CO</option><option>HJ</option><option>LJ</option><option>UTG</option><option>MP</option><option>SB</option><option>BB</option></select></div></div><div class="hidden"><input id="ante" type="number" value="0"><select id="style"><option value="unknown">정보 없음</option><option value="tight">타이트</option><option value="loose">루즈</option><option value="station">콜스테이션</option></select></div></div>
 <div class="panel"><div class="cardpanel"><div class="hole"><div class="line"><strong>내 핸드</strong><button id="heroBtn">선택</button></div><div class="cards" id="heroCards"></div></div><div class="board"><div class="line"><strong>보드 카드</strong><button id="boardBtn">추가</button></div><div class="cards" id="boardCards"></div></div></div><div class="hidden"><button id="flop">플랍</button><button id="turn">턴</button><button id="river">리버</button><button id="boardClear">보드 지움</button></div></div>
 <div class="panel money"><div class="potline"><div><div class="muted">현재 팟</div><div class="big" id="pot">300</div></div><div><div class="muted">베팅 / 레이즈 금액</div><div class="big" id="draft">0</div></div></div><div class="grid" id="chips"></div><div class="money-actions"><button id="actFold">폴드</button><button id="actCheck">체크</button><button id="actCall">콜</button><button id="actRaise">레이즈</button><button id="actAllin">올인</button></div><div class="quick-tools"><button id="undo">↶ 취소</button><button id="clear">입력 지움</button><button class="primary" id="add">팟 추가</button><button id="adjust">팟 수정</button></div><div class="smallnote" id="betHint">칩 금액 → 바로 아래 액션 버튼 · 콜은 자동 금액</div></div>
@@ -78,7 +83,7 @@ function beginHand(rotate=false){if(rotate){table.dealer=circleAfter(table.deale
 function stillNeed(p){return !p.fold&&!p.allin&&(!p.acted||p.paid<table.target)}
 function roundComplete(){return table.players.filter(Boolean).filter(p=>!p.fold&&!p.allin).every(p=>!stillNeed(p))}
 function renderTable(){let [sb,bb]=positionBlinds(),parts=[];for(let i=1;i<=table.count;i++){let p=table.players[i],classes='seat'+(i===table.actor?' active':'')+(i===table.hero?' hero':'')+(p.fold?' folded':'')+(p.allin?' allin':'');let label=i===table.dealer?'BTN':i===sb?'SB':i===bb?'BB':'';parts.push('<button class="'+classes+'" data-seat="'+i+'">'+i+'번 '+(i===table.hero?'👤':'')+'<br><small>'+label+(p.fold?' · 폴드':p.allin?' · 올인':' · '+fmt(p.paid))+'</small></button>')}$('seatButtons').innerHTML=parts.join('');$('seatButtons').querySelectorAll('button').forEach(b=>b.onclick=()=>{let n=+b.dataset.seat;if(!table.players[n].fold&&!table.players[n].allin){table.actor=n;renderTable()}});$('actorText').textContent=table.actor?table.actor+'번'+(table.actor===table.hero?' (나)':''):'액션 종료';$('streetText').textContent=streetNames[table.street];$('turnStatus').textContent='핸드 #'+table.handNo+' · 현재 베팅 총액 '+fmt(table.target)+' · '+(roundComplete()?'베팅 라운드 종료 — 다음 스트리트 선택':'차례에 맞춰 액션을 기록하세요');$('call').value=table.actor?Math.max(0,table.target-table.players[table.actor].paid):0;coach()}
-function action(type){let seat=table.actor,p=table.players[seat];if(!p)return;let due=Math.max(0,table.target-p.paid);if(type==='check'&&due){alert('콜해야 할 금액이 있어 체크할 수 없습니다.');return}if(type==='raise'&&draft<=table.target){alert('칩 버튼으로 현재 베팅액보다 큰 총 레이즈 금액을 입력하세요.');return}if(type==='raise'&&draft-table.target<table.lastRaise){alert('최소 레이즈 증가액 '+fmt(table.lastRaise)+'칩이 필요합니다. (올인 예외)');return}let amount=type==='call'?due:type==='raise'?draft-p.paid:type==='allin'?Math.max(0,Number(prompt('이 좌석의 남은 스택(이번 스트리트 이전 납입액 제외)을 입력하세요',num('stack')))||0):0;if(amount<0)return;if(type==='allin'&&amount===0)return;saveStep();if(type==='fold')p.fold=true;if(type==='raise'||type==='allin'){let newTarget=p.paid+amount;if(newTarget>table.target){let inc=newTarget-table.target;if(inc>=table.lastRaise){table.lastRaise=inc;table.players.forEach(x=>{if(x&&!x.fold&&!x.allin)x.acted=false})}table.target=newTarget;table.lastAggressor=seat}}p.paid+=amount;p.total+=amount;pot+=amount;p.acted=true;if(type==='allin')p.allin=true;table.acted.add(seat);draft=0;history.push(pot-amount);table.actor=nextLive(seat);if(roundComplete()||table.players.filter(Boolean).filter(x=>!x.fold).length<=1)table.actor=0;draw();renderTable()}
+function action(type){let seat=table.actor,p=table.players[seat];if(!p)return;let due=Math.max(0,table.target-p.paid);if(type==='check'&&due){alert('콜해야 할 금액이 있어 체크할 수 없습니다.');return}if(type==='raise'&&draft<=table.target){alert('칩 버튼으로 현재 베팅액보다 큰 총 레이즈 금액을 입력하세요.');return}if(type==='raise'&&draft-table.target<table.lastRaise){alert('최소 레이즈 증가액 '+fmt(table.lastRaise)+'칩이 필요합니다. (올인 예외)');return}let amount=type==='call'?due:type==='raise'?draft-p.paid:type==='allin'?Math.max(0,Number(prompt('이 좌석의 남은 스택(이번 스트리트 이전 납입액 제외)을 입력하세요',num('stack')))||0):0;if(amount<0)return;if(type==='allin'&&amount===0)return;saveStep();if(type==='fold')p.fold=true;if(type==='raise'||type==='allin'){let newTarget=p.paid+amount;if(newTarget>table.target){let inc=newTarget-table.target;if(inc>=table.lastRaise){table.lastRaise=inc;table.players.forEach(x=>{if(x&&!x.fold&&!x.allin)x.acted=false})}table.target=newTarget;table.lastAggressor=seat}}p.paid+=amount;p.total+=amount;pot+=amount;p.acted=true;if(type==='allin')p.allin=true;table.acted.add(seat);draft=0;history.push(pot-amount);table.actor=nextLive(seat);if(roundComplete()||table.players.filter(Boolean).filter(x=>!x.fold).length<=1)table.actor=0;draw();renderTable();if(typeof quickAutoAdvance==='function')quickAutoAdvance()}
 function advanceStreet(){if(table.street>=3){alert('리버입니다. 다음 핸드를 시작하세요.');return}if(!roundComplete()&&table.actor){if(!confirm('아직 액션이 남았습니다. 다음 스트리트로 이동할까요?'))return}saveStep();table.street++;table.target=0;table.lastRaise=Math.max(1,num('bb'));table.lastAggressor=null;table.acted=new Set();table.players.forEach(p=>{if(p){p.paid=0;p.acted=false}});table.actor=nextLive(table.dealer);if(table.players.filter(Boolean).filter(p=>!p.fold&&!p.allin).length<2)table.actor=0;draw();renderTable()}
 $('seatCount').onchange=()=>{table.count=Number($('seatCount').value);table.hero=Math.min(table.hero,table.count);table.dealer=Math.min(table.dealer,table.count);beginHand()};
 $('heroSeat').onchange=()=>{table.hero=Number($('heroSeat').value);renderTable()};
@@ -121,4 +126,72 @@ document.getElementById('actRaise').onclick=()=>action('raise');
 document.getElementById('actAllin').onclick=()=>action('allin');
 renderTable();
 })();
+</script><script id="auto-street-blind-v8">
+/* Street completion is checked after each action. No timer, no extra taps. */
+let quickHandFinished=false;
+let quickBlindLevel=1;
+let quickPendingBlinds=null;
+const quickBlindLevels=[[100,200],[200,400],[300,600],[400,800],[500,1000],[600,1200],[800,1600],[1000,2000],[1500,3000],[2000,4000],[3000,6000],[4000,8000],[5000,10000],[6000,12000],[8000,16000],[10000,20000],[15000,30000],[20000,40000],[30000,60000],[40000,80000]];
+function quickBlindNotice(){
+const n=document.getElementById('blindNotice');
+if(!n)return;
+const sb=num('sb'),bb=num('bb');
+n.textContent='레벨 '+quickBlindLevel+' · '+fmt(sb)+' / '+fmt(bb)+(quickPendingBlinds?' → 다음 핸드 '+fmt(quickPendingBlinds[0])+' / '+fmt(quickPendingBlinds[1]):'');
+}
+function quickFinishHand(){
+quickHandFinished=true;
+table.actor=0;
+renderTable();
+const st=document.getElementById('turnStatus');
+if(st)st.textContent='핸드 종료 · 다음 핸드 버튼을 누르세요';
+}
+function quickAutoAdvance(){
+if(quickHandFinished)return;
+const survivors=table.players.filter(Boolean).filter(p=>!p.fold);
+if(survivors.length<=1){quickFinishHand();return}
+const able=survivors.filter(p=>!p.allin);
+if(able.length<=1){
+ // Once no further betting is possible, advance the displayed street automatically.
+ if(table.street<3){advanceStreet();quickAutoAdvance()}else quickFinishHand();
+ return;
+}
+if(!roundComplete())return;
+if(table.street===3){quickFinishHand();return}
+advanceStreet();
+}
+const quickOldBegin=beginHand;
+beginHand=function(rotate=false){
+if(quickPendingBlinds){
+document.getElementById('sb').value=quickPendingBlinds[0];
+document.getElementById('bb').value=quickPendingBlinds[1];
+quickPendingBlinds=null;
+}
+quickHandFinished=false;
+quickOldBegin(rotate);
+quickBlindNotice();
+};
+document.getElementById('blindUp').onclick=()=>{
+const current=quickPendingBlinds||[num('sb'),num('bb')];
+let index=quickBlindLevels.findIndex(([sb,bb])=>sb===current[0]&&bb===current[1]);
+if(index<0)index=quickBlindLevels.findIndex(([sb,bb])=>sb>current[0]&&bb>current[1])-1;
+let next=quickBlindLevels[Math.min(Math.max(0,index+1),quickBlindLevels.length-1)];
+if(next[0]<=current[0]||next[1]<=current[1]){
+next=[Math.max(current[0]+1,Math.round(current[0]*1.5/100)*100),Math.max(current[1]+1,Math.round(current[1]*1.5/100)*100)];
+}
+quickPendingBlinds=next;
+quickBlindLevel++;
+quickBlindNotice();
+};
+const quickOldRender=renderTable;
+renderTable=function(){
+quickOldRender();
+if(quickHandFinished){document.getElementById('actorText').textContent='핸드 종료';}
+};
+document.getElementById('nextHand').onclick=()=>beginHand(true);
+document.getElementById('turnRestart').onclick=()=>{if(confirm('현재 핸드를 초기화할까요?'))beginHand()};
+document.getElementById('reset').onclick=()=>{if(confirm('새 핸드를 시작할까요?'))beginHand()};
+['sb','bb'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{
+quickBlindLevel=1;quickPendingBlinds=null;quickBlindNotice();
+}));
+quickBlindNotice();
 </script></body></html>

@@ -30,7 +30,7 @@
 <div class="hidden"><div id="bets"></div></div><div class="footer">실전용 한 화면 UI · 베팅액과 팟은 입력한 액션만 반영됩니다. 코칭은 근사 규칙이며 정확한 승률 계산이나 솔버가 아닙니다. 실시간 코칭이 금지된 곳에서는 복기용으로 사용하세요. <a href="./ai-live.html">전체 코칭기</a></div>
 <div class="sheet" id="sheet"><div class="sheetbody"><div class="line"><strong id="pickTitle">카드 선택</strong><button id="close">닫기</button></div><p class="muted">랭크 → 무늬 순서로 터치</p><div class="ranks" id="ranks"></div><div class="suits" id="suits" style="margin-top:10px"></div></div></div>
 <script>
-const $=x=>document.getElementById(x),fmt=n=>Math.round(n).toLocaleString('ko-KR'),num=x=>Math.max(0,Number($(x).value)||0);
+const $=x=>document.getElementById(x),fmt=n=>Math.round(n).toLocaleString('ko-KR'),num=x=>Math.max(0,Number(String($(x).value).replace(/,/g,''))||0);
 let pot=300,draft=0,history=[],hero=[],board=[],mode='hero',rank='A';
 const rankOrder='23456789TJQKA',suitSymbols={S:'♠',H:'♥',D:'♦',C:'♣'};
 function draw(){ $('pot').textContent=fmt(pot);$('draft').textContent=fmt(draft);$('heroCards').innerHTML=hero.map(cardHtml).join('')||'<span class="muted">카드를 선택하세요</span>';$('boardCards').innerHTML=board.map(cardHtml).join('')||'<span class="muted">보드 없음</span>'; coach();}
@@ -383,7 +383,7 @@ let actions=[],previousHand=table.handNo,previousStreet=table.street;
 const numericFields=['stack','call','splitAmount'];
 function clean(v){return String(v??'').replace(/[^0-9]/g,'')}
 function commas(v){const n=clean(v);return n?n.replace(/\B(?=(\d{3})+(?!\d))/g,','):'0'}
-const oldNum=num;num=function(id){if(numericFields.includes(id)){const el=document.getElementById(id);return el?Number(clean(el.value)||0):0}return oldNum(id)};
+/* numeric parser is comma-aware in the original calculator */
 numericFields.forEach(id=>{const el=document.getElementById(id);if(!el)return;el.type='text';el.inputMode='numeric';el.addEventListener('focus',()=>{el.value=clean(el.value);el.select()});el.addEventListener('blur',()=>{el.value=commas(el.value)});el.addEventListener('input',()=>{el.value=clean(el.value)});el.value=commas(el.value)});
 const oldDraw=draw;draw=function(){oldDraw();numericFields.forEach(id=>{const el=document.getElementById(id);if(el&&document.activeElement!==el)el.value=commas(el.value)});updateGate()};
 const oldRender=renderTable;renderTable=function(){oldRender();const c=document.getElementById('call');if(document.activeElement!==c)c.value=commas(c.value)};
